@@ -15,7 +15,9 @@
 #include "vrb/Matrix.h"
 #include "vrb/Quaternion.h"
 #include "vrb/RenderContext.h"
+#include "vrb/ShaderUtil.h"
 #include "vrb/Vector.h"
+#include "vrb/gl.h"
 #include "JNIUtil.h"
 
 #include <android/log.h>
@@ -35,6 +37,77 @@ JNIEnv* sEnv = nullptr;
 jclass sBrowserClass = nullptr;
 jobject sActivity = nullptr;
 jmethodID sSetRenderMode = nullptr;
+
+static const char* sDistortionVertexShader = R"SHADER(
+attribute vec4 a_position;
+attribute vec2 a_uv;
+varying vec2 v_uv;
+void main() {
+    v_uv = a_uv;
+    gl_Position = a_position;
+}
+)SHADER";
+
+static const char* sDistortionFragmentShader = R"SHADER(
+precision mediump float;
+
+varying vec2 v_uv;
+
+uniform sampler2D u_sceneTexture;
+uniform vec2 u_lensCenterLeft;
+uniform vec2 u_lensCenterRight;
+uniform float u_k1;
+uniform float u_k2;
+uniform float u_eyeAspect;
+
+void main() {
+    bool isRight = (v_uv.x >= 0.5);
+    vec2 vpMin = isRight ? vec2(0.5, 0.0) : vec2(0.0, 0.0);
+    vec2 vpSize = vec2(0.5, 1.0);
+    
+    // Normalized eye UV in [0.0, 1.0] x [0.0, 1.0]
+    vec2 eyeUV = (v_uv - vpMin) / vpSize;
+    
+    vec2 lensCenter = isRight ? u_lensCenterRight : u_lensCenterLeft;
+    
+    // Position relative to optical lens center
+    vec2 p = eyeUV - lensCenter;
+    
+    // Correct for aspect ratio to ensure circular radial distortion
+    vec2 pAspect = vec2(p.x * u_eyeAspect, p.y);
+    
+    float r2 = dot(pAspect, pAspect);
+    float r4 = r2 * r2;
+    
+    // Official Google Cardboard Barrel Distortion polynomial formula
+    float distortionFactor = 1.0 + u_k1 * r2 + u_k2 * r4;
+    
+    vec2 distortedEyeUV = lensCenter + p * distortionFactor;
+    
+    // Vignette / black border outside eye optical field
+    if (distortedEyeUV.x < 0.0 || distortedEyeUV.x > 1.0 ||
+        distortedEyeUV.y < 0.0 || distortedEyeUV.y > 1.0) {
+        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+    } else {
+        vec2 sampleScreenUV = vpMin + distortedEyeUV * vpSize;
+        gl_FragColor = texture2D(u_sceneTexture, sampleScreenUV);
+    }
+}
+)SHADER";
+
+static const GLfloat sQuadVertices[] = {
+    -1.0f,  1.0f, 0.0f,
+    -1.0f, -1.0f, 0.0f,
+     1.0f,  1.0f, 0.0f,
+     1.0f, -1.0f, 0.0f
+};
+
+static const GLfloat sQuadUVs[] = {
+    0.0f, 1.0f,
+    0.0f, 0.0f,
+    1.0f, 1.0f,
+    1.0f, 0.0f
+};
 
 } // namespace
 
@@ -61,6 +134,26 @@ struct DeviceDelegate3DOF::State {
   bool clicked;
   GLsizei glWidth, glHeight;
   float near, far;
+
+  // Offscreen Framebuffer Object (FBO) & Real-time Google Cardboard Barrel Distortion Engine
+  GLuint fbo = 0;
+  GLuint fboTexture = 0;
+  GLuint fboDepthBuffer = 0;
+  int32_t fboWidth = 0;
+  int32_t fboHeight = 0;
+
+  GLuint vertexShader = 0;
+  GLuint fragmentShader = 0;
+  GLuint program = 0;
+
+  GLint aPositionLoc = -1;
+  GLint aUVLoc = -1;
+  GLint uSceneTextureLoc = -1;
+  GLint uLensCenterLeftLoc = -1;
+  GLint uLensCenterRightLoc = -1;
+  GLint uK1Loc = -1;
+  GLint uK2Loc = -1;
+  GLint uEyeAspectLoc = -1;
 
   // Sensor & Orientation State
   std::mutex sensorMutex;
@@ -120,7 +213,93 @@ struct DeviceDelegate3DOF::State {
     }
   }
 
-  void Shutdown() {}
+  void CleanupDistortionEngine() {
+    if (fbo) {
+      VRB_GL_CHECK(glDeleteFramebuffers(1, &fbo));
+      fbo = 0;
+    }
+    if (fboTexture) {
+      VRB_GL_CHECK(glDeleteTextures(1, &fboTexture));
+      fboTexture = 0;
+    }
+    if (fboDepthBuffer) {
+      VRB_GL_CHECK(glDeleteRenderbuffers(1, &fboDepthBuffer));
+      fboDepthBuffer = 0;
+    }
+    fboWidth = 0;
+    fboHeight = 0;
+  }
+
+  void Shutdown() {
+    CleanupDistortionEngine();
+    if (program) {
+      VRB_GL_CHECK(glDeleteProgram(program));
+      program = 0;
+    }
+    if (vertexShader) {
+      VRB_GL_CHECK(glDeleteShader(vertexShader));
+      vertexShader = 0;
+    }
+    if (fragmentShader) {
+      VRB_GL_CHECK(glDeleteShader(fragmentShader));
+      fragmentShader = 0;
+    }
+  }
+
+  void InitDistortionEngine(int32_t width, int32_t height) {
+    if (width <= 0 || height <= 0) return;
+    if (fboWidth == width && fboHeight == height && fbo != 0) return;
+
+    CleanupDistortionEngine();
+
+    fboWidth = width;
+    fboHeight = height;
+
+    // 1. Create Color Texture
+    VRB_GL_CHECK(glGenTextures(1, &fboTexture));
+    VRB_GL_CHECK(glBindTexture(GL_TEXTURE_2D, fboTexture));
+    VRB_GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, fboWidth, fboHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr));
+    VRB_GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+    VRB_GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+    VRB_GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+    VRB_GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+
+    // 2. Create Depth Renderbuffer
+    VRB_GL_CHECK(glGenRenderbuffers(1, &fboDepthBuffer));
+    VRB_GL_CHECK(glBindRenderbuffer(GL_RENDERBUFFER, fboDepthBuffer));
+    VRB_GL_CHECK(glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, fboWidth, fboHeight));
+
+    // 3. Attach to Framebuffer Object
+    VRB_GL_CHECK(glGenFramebuffers(1, &fbo));
+    VRB_GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, fbo));
+    VRB_GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, fboTexture, 0));
+    VRB_GL_CHECK(glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, fboDepthBuffer));
+
+    GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (status != GL_FRAMEBUFFER_COMPLETE) {
+        VRB_ERROR("Universal3DOF: Offscreen FBO incomplete status 0x%x", status);
+    }
+    VRB_GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
+    // 4. Compile Distortion Shader Program
+    if (!program) {
+      vertexShader = vrb::LoadShader(GL_VERTEX_SHADER, sDistortionVertexShader);
+      fragmentShader = vrb::LoadShader(GL_FRAGMENT_SHADER, sDistortionFragmentShader);
+      if (vertexShader && fragmentShader) {
+        program = vrb::CreateProgram(vertexShader, fragmentShader);
+      }
+      if (program) {
+        aPositionLoc = vrb::GetAttributeLocation(program, "a_position");
+        aUVLoc = vrb::GetAttributeLocation(program, "a_uv");
+        uSceneTextureLoc = vrb::GetUniformLocation(program, "u_sceneTexture");
+        uLensCenterLeftLoc = vrb::GetUniformLocation(program, "u_lensCenterLeft");
+        uLensCenterRightLoc = vrb::GetUniformLocation(program, "u_lensCenterRight");
+        uK1Loc = vrb::GetUniformLocation(program, "u_k1");
+        uK2Loc = vrb::GetUniformLocation(program, "u_k2");
+        uEyeAspectLoc = vrb::GetUniformLocation(program, "u_eyeAspect");
+      }
+    }
+  }
 
   void UpdateDisplay() {
     if (!display || glWidth == 0 || glHeight == 0) {
@@ -368,6 +547,14 @@ float DeviceDelegate3DOF::GetDwellDuration() const {
 }
 
 void DeviceDelegate3DOF::StartFrame(const FramePrediction aPrediction) {
+  if (m.glWidth > 0 && m.glHeight > 0) {
+    m.InitDistortionEngine(m.glWidth, m.glHeight);
+  }
+
+  if (m.fbo != 0) {
+    VRB_GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, m.fbo));
+  }
+
   VRB_GL_CHECK(glClearColor(m.clearColor.Red(), m.clearColor.Green(),
                              m.clearColor.Blue(), m.clearColor.Alpha()));
   VRB_GL_CHECK(glEnable(GL_DEPTH_TEST));
@@ -428,13 +615,13 @@ void DeviceDelegate3DOF::StartFrame(const FramePrediction aPrediction) {
   if (m.frameCount % 60 == 0) {
     float sinp = 2.0f * (qFinal.w() * qFinal.x() - qFinal.y() * qFinal.z());
     float pitch = (std::abs(sinp) >= 1.0f ? std::copysign(3.14159265f / 2.0f, sinp) : std::asin(sinp)) * (180.0f / 3.14159265f);
-    float yaw = std::atan2(2.0f * (qFinal.w() * qFinal.y() + qFinal.z() * qFinal.x()),
+    float yaw = std::atan2(2.0f * (qFinal.w() * qFinal.y() + qFinal.z() * qFiltered.x()),
                            1.0f - 2.0f * (qFinal.x() * qFinal.x() + qFinal.y() * qFinal.y())) * (180.0f / 3.14159265f);
     float roll = std::atan2(2.0f * (qFinal.w() * qFinal.z() + qFinal.x() * qFinal.y()),
                             1.0f - 2.0f * (qFinal.y() * qFinal.y() + qFinal.z() * qFinal.z())) * (180.0f / 3.14159265f);
 
-    LOG_TELEMETRY("[3DOF CAMERA STREAM] Yaw=%.2f° Pitch=%.2f° Roll=%.2f° | HeadPos=(%.2f, %.2f, %.2f) | FOV=%.1f° IPD=%.4fm",
-                  yaw, pitch, roll, m.position.x(), m.position.y(), m.position.z(), m.profile.screenFOV, m.profile.ipd);
+    LOG_TELEMETRY("[3DOF CAMERA STREAM] Yaw=%.2f° Pitch=%.2f° Roll=%.2f° | HeadPos=(%.2f, %.2f, %.2f) | FOV=%.1f° IPD=%.4fm k1=%.3f k2=%.3f",
+                  yaw, pitch, roll, m.position.x(), m.position.y(), m.position.z(), m.profile.screenFOV, m.profile.ipd, m.profile.k1, m.profile.k2);
   }
 
   // Update Gaze pointer transform
@@ -527,7 +714,68 @@ void DeviceDelegate3DOF::BindEye(const device::Eye aEye) {
   VRB_GL_CHECK(glViewport(xOffset, yOffset, eyeWidth, eyeHeight));
 }
 
-void DeviceDelegate3DOF::EndFrame(const FrameEndMode aMode) {}
+void DeviceDelegate3DOF::EndFrame(const FrameEndMode aMode) {
+  if (m.fbo == 0 || !m.program) {
+    return;
+  }
+
+  // 1. Unbind offscreen FBO -> target physical device screen framebuffer
+  VRB_GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, 0));
+
+  // 2. Set full screen viewport
+  VRB_GL_CHECK(glViewport(0, 0, m.glWidth, m.glHeight));
+
+  // 3. Disable 3D scene depth/culling state for 2D distortion blit
+  VRB_GL_CHECK(glDisable(GL_DEPTH_TEST));
+  VRB_GL_CHECK(glDisable(GL_CULL_FACE));
+  VRB_GL_CHECK(glDisable(GL_BLEND));
+  VRB_GL_CHECK(glClearColor(0.0f, 0.0f, 0.0f, 1.0f));
+  VRB_GL_CHECK(glClear(GL_COLOR_BUFFER_BIT));
+
+  // 4. Activate Distortion Shader
+  VRB_GL_CHECK(glUseProgram(m.program));
+
+  // Compute optical lens center coordinates in normalized eye viewport [0, 1]
+  float halfIPD = m.profile.ipd / 2.0f;
+  float shiftMeters = halfIPD - 0.0375f;
+  float shiftNormX = shiftMeters / 0.075f;
+
+  float deltaY = (m.profile.verticalAlignment == 0) ? (m.profile.trayToLensCenterDistance - 0.035f) : 0.0f;
+  float shiftNormY = deltaY / 0.070f;
+
+  float lensLeftX = 0.5f + shiftNormX;
+  float lensLeftY = 0.5f + shiftNormY;
+
+  float lensRightX = 0.5f - shiftNormX;
+  float lensRightY = 0.5f + shiftNormY;
+
+  float eyeAspect = (float)(m.glWidth / 2) / (float)m.glHeight;
+
+  VRB_GL_CHECK(glUniform2f(m.uLensCenterLeftLoc, lensLeftX, lensLeftY));
+  VRB_GL_CHECK(glUniform2f(m.uLensCenterRightLoc, lensRightX, lensRightY));
+  VRB_GL_CHECK(glUniform1f(m.uK1Loc, m.profile.k1));
+  VRB_GL_CHECK(glUniform1f(m.uK2Loc, m.profile.k2));
+  VRB_GL_CHECK(glUniform1f(m.uEyeAspectLoc, eyeAspect));
+
+  VRB_GL_CHECK(glActiveTexture(GL_TEXTURE0));
+  VRB_GL_CHECK(glBindTexture(GL_TEXTURE_2D, m.fboTexture));
+  VRB_GL_CHECK(glUniform1i(m.uSceneTextureLoc, 0));
+
+  if (m.aPositionLoc >= 0) {
+    VRB_GL_CHECK(glEnableVertexAttribArray(m.aPositionLoc));
+    VRB_GL_CHECK(glVertexAttribPointer(m.aPositionLoc, 3, GL_FLOAT, GL_FALSE, 0, sQuadVertices));
+  }
+  if (m.aUVLoc >= 0) {
+    VRB_GL_CHECK(glEnableVertexAttribArray(m.aUVLoc));
+    VRB_GL_CHECK(glVertexAttribPointer(m.aUVLoc, 2, GL_FLOAT, GL_FALSE, 0, sQuadUVs));
+  }
+
+  VRB_GL_CHECK(glDrawArrays(GL_TRIANGLE_STRIP, 0, 4));
+
+  if (m.aPositionLoc >= 0) {
+    VRB_GL_CHECK(glDisableVertexAttribArray(m.aPositionLoc));
+  }
+}
 
 void DeviceDelegate3DOF::InitializeJava(JNIEnv* aEnv, jobject aActivity) {
   if (aEnv == sEnv) {
