@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ApertureReality</string>
+    <string name="platform_name">Universal3DOF</string>
+    <string name="crash_app_name" translatable="false">ApertureReality</string>
+    <string name="privacy_dialog_message">Your privacy is important to us. In order to run the browser, please accept our terms of service and privacy policy. Thanks for using ApertureReality!</string>
+    <string name="privacy_dialog_disagree">Close ApertureReality</string>
+    <string name="developer_options_homepage_wolvic">ApertureReality Start Page</string>
+    <string name="security_options_permission_fine_location_warning">ApertureReality can only get your approximate location. This can be changed in the system settings.</string>
+    <string name="HOMEPAGE_URL" translatable="false">https://www.google.com</string>
+</resources>
