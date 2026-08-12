@@ -592,10 +592,16 @@ public class PlatformActivity extends ComponentActivity implements SensorEventLi
     public void sendPhysicalDisplayMetricsToNative() {
         try {
             android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
-            float xdpi = metrics.xdpi;
-            float ydpi = metrics.ydpi;
-            float widthMeters = (metrics.widthPixels / xdpi) * 0.0254f;
-            float heightMeters = (metrics.heightPixels / ydpi) * 0.0254f;
+            float xdpi = metrics.xdpi > 1.0f ? metrics.xdpi : 396.0f;
+            float ydpi = metrics.ydpi > 1.0f ? metrics.ydpi : 396.0f;
+            
+            float m1 = (metrics.widthPixels / xdpi) * 0.0254f;
+            float m2 = (metrics.heightPixels / ydpi) * 0.0254f;
+
+            // In VR Landscape Mode, Physical Width is always the larger metric (horizontal)
+            float widthMeters = Math.max(m1, m2);
+            float heightMeters = Math.min(m1, m2);
+
             Log.i(LOGTAG, String.format("Physical Display: %dx%d px | xdpi=%.1f, ydpi=%.1f | Real size: %.4fm x %.4fm",
                     metrics.widthPixels, metrics.heightPixels, xdpi, ydpi, widthMeters, heightMeters));
             queueRunnable(() -> setPhysicalScreenDimensions(widthMeters, heightMeters, xdpi, ydpi));
