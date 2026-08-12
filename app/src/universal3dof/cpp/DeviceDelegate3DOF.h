@@ -87,6 +87,10 @@ public:
   // ViewerProfile & Stereo Camera interface
   void SetViewerProfile(const ViewerProfile& aProfile);
   const ViewerProfile& GetViewerProfile() const;
+  void SetPhysicalScreenDimensions(float widthMeters, float heightMeters, float xdpi, float ydpi);
+  void SetDistortionTestMode(int mode); // 0 = OFF, 1 = NORMAL, 2 = INVERSE
+  void SetEyeSwapTestMode(int mode);     // 0 = NORMAL, 1 = SWAPPED
+  void SetCalibrationGridMode(bool enabled);
   void SetIPD(const float aIPD);
   void SetFOV(const float aFOV);
   void SetCameraPosOffset(const float aX, const float aY, const float aZ);

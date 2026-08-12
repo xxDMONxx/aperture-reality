@@ -161,6 +161,34 @@ JNI_METHOD(void, setFullViewerProfile)
   }
 }
 
+JNI_METHOD(void, setPhysicalScreenDimensions)
+(JNIEnv*, jobject, jfloat aWidthMeters, jfloat aHeightMeters, jfloat aXDPI, jfloat aYDPI) {
+  if (sAppContext && sAppContext->mDevice) {
+    sAppContext->mDevice->SetPhysicalScreenDimensions(aWidthMeters, aHeightMeters, aXDPI, aYDPI);
+  }
+}
+
+JNI_METHOD(void, setDistortionTestMode)
+(JNIEnv*, jobject, jint aMode) {
+  if (sAppContext && sAppContext->mDevice) {
+    sAppContext->mDevice->SetDistortionTestMode(aMode);
+  }
+}
+
+JNI_METHOD(void, setEyeSwapTestMode)
+(JNIEnv*, jobject, jint aMode) {
+  if (sAppContext && sAppContext->mDevice) {
+    sAppContext->mDevice->SetEyeSwapTestMode(aMode);
+  }
+}
+
+JNI_METHOD(void, setCalibrationGridMode)
+(JNIEnv*, jobject, jboolean aEnabled) {
+  if (sAppContext && sAppContext->mDevice) {
+    sAppContext->mDevice->SetCalibrationGridMode(aEnabled);
+  }
+}
+
 jint JNI_OnLoad(JavaVM* aVm, void*) {
   if (sAppContext) {
     return JNI_VERSION_1_6;

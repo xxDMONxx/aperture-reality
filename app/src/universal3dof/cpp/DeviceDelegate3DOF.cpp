@@ -49,49 +49,80 @@ void main() {
 )SHADER";
 
 static const char* sDistortionFragmentShader = R"SHADER(
-precision mediump float;
+precision highp float;
 
 varying vec2 v_uv;
 
 uniform sampler2D u_sceneTexture;
 uniform vec2 u_lensCenterLeft;
 uniform vec2 u_lensCenterRight;
+uniform vec2 u_eyeTanScale;
 uniform float u_k1;
 uniform float u_k2;
-uniform float u_eyeAspect;
+uniform int u_distortionMode;     // 0 = OFF, 1 = NORMAL, 2 = INVERSE
+uniform int u_eyeSwapMode;        // 0 = NORMAL, 1 = SWAPPED
+uniform int u_calibrationGrid;    // 0 = OFF, 1 = ON
 
 void main() {
-    bool isRight = (v_uv.x >= 0.5);
-    vec2 vpMin = isRight ? vec2(0.5, 0.0) : vec2(0.0, 0.0);
+    bool isRightScreen = (v_uv.x >= 0.5);
+    bool isRightEye = isRightScreen;
+    if (u_eyeSwapMode == 1) {
+        isRightEye = !isRightEye;
+    }
+
+    vec2 vpMin = isRightScreen ? vec2(0.5, 0.0) : vec2(0.0, 0.0);
     vec2 vpSize = vec2(0.5, 1.0);
     
-    // Normalized eye UV in [0.0, 1.0] x [0.0, 1.0]
     vec2 eyeUV = (v_uv - vpMin) / vpSize;
+    vec2 lensCenter = isRightEye ? u_lensCenterRight : u_lensCenterLeft;
     
-    vec2 lensCenter = isRight ? u_lensCenterRight : u_lensCenterLeft;
+    vec2 pEye = eyeUV - lensCenter;
     
-    // Position relative to optical lens center
-    vec2 p = eyeUV - lensCenter;
+    // Map normalized eye vector to tan-angle space (radians / tangents)
+    vec2 pTan = pEye * u_eyeTanScale;
     
-    // Correct for aspect ratio to ensure circular radial distortion
-    vec2 pAspect = vec2(p.x * u_eyeAspect, p.y);
-    
-    float r2 = dot(pAspect, pAspect);
+    float r2 = dot(pTan, pTan);
     float r4 = r2 * r2;
     
-    // Official Google Cardboard Barrel Distortion polynomial formula
-    float distortionFactor = 1.0 + u_k1 * r2 + u_k2 * r4;
+    float distortionFactor = 1.0;
+    if (u_distortionMode == 1) {
+        // Normal Radial Barrel Distortion (Polynomial scale in tan-angle space)
+        distortionFactor = 1.0 + u_k1 * r2 + u_k2 * r4;
+    } else if (u_distortionMode == 2) {
+        // Inverse Distortion (Pincushion pre-compensation)
+        distortionFactor = 1.0 / (1.0 + u_k1 * r2 + u_k2 * r4);
+    }
     
-    vec2 distortedEyeUV = lensCenter + p * distortionFactor;
+    vec2 distortedEyeUV = lensCenter + pEye * distortionFactor;
     
-    // Vignette / black border outside eye optical field
+    vec4 sceneColor;
     if (distortedEyeUV.x < 0.0 || distortedEyeUV.x > 1.0 ||
         distortedEyeUV.y < 0.0 || distortedEyeUV.y > 1.0) {
-        gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0);
+        sceneColor = vec4(0.0, 0.0, 0.0, 1.0);
     } else {
-        vec2 sampleScreenUV = vpMin + distortedEyeUV * vpSize;
-        gl_FragColor = texture2D(u_sceneTexture, sampleScreenUV);
+        vec2 sampleScreenUV = (isRightEye ? vec2(0.5, 0.0) : vec2(0.0, 0.0)) + distortedEyeUV * vpSize;
+        sceneColor = texture2D(u_sceneTexture, sampleScreenUV);
     }
+
+    // Diagnostic Calibration Scene Overlay
+    if (u_calibrationGrid == 1) {
+        vec2 distCenter = abs(eyeUV - lensCenter);
+        // 1. Draw Lens Center Crosshair (Red)
+        if (distCenter.x < 0.003 || distCenter.y < 0.003) {
+            sceneColor = vec4(1.0, 0.0, 0.0, 1.0);
+        }
+        // 2. Draw Outer Border (Green)
+        if (eyeUV.x < 0.01 || eyeUV.x > 0.99 || eyeUV.y < 0.01 || eyeUV.y > 0.99) {
+            sceneColor = vec4(0.0, 1.0, 0.0, 1.0);
+        }
+        // 3. Draw Radial Rings (Yellow)
+        float rTanRadius = length(pTan);
+        if (abs(rTanRadius - 0.25) < 0.006 || abs(rTanRadius - 0.50) < 0.006 || abs(rTanRadius - 0.75) < 0.006) {
+            sceneColor = vec4(1.0, 1.0, 0.0, 1.0);
+        }
+    }
+
+    gl_FragColor = sceneColor;
 }
 )SHADER";
 
@@ -135,6 +166,17 @@ struct DeviceDelegate3DOF::State {
   GLsizei glWidth, glHeight;
   float near, far;
 
+  // Real Physical Display Metrics measured from Android DisplayMetrics
+  float physicalWidthMeters = 0.1539f; // Default ~15.4cm for Samsung A52
+  float physicalHeightMeters = 0.0692f; // Default ~6.9cm for Samsung A52
+  float xdpi = 396.0f;
+  float ydpi = 396.0f;
+
+  // Diagnostic Test & Calibration Modes
+  int distortionTestMode = 1; // 0 = OFF, 1 = NORMAL, 2 = INVERSE
+  int eyeSwapTestMode = 0;     // 0 = NORMAL, 1 = SWAPPED
+  bool calibrationGridMode = false;
+
   // Offscreen Framebuffer Object (FBO) & Real-time Google Cardboard Barrel Distortion Engine
   GLuint fbo = 0;
   GLuint fboTexture = 0;
@@ -151,9 +193,12 @@ struct DeviceDelegate3DOF::State {
   GLint uSceneTextureLoc = -1;
   GLint uLensCenterLeftLoc = -1;
   GLint uLensCenterRightLoc = -1;
+  GLint uEyeTanScaleLoc = -1;
   GLint uK1Loc = -1;
   GLint uK2Loc = -1;
-  GLint uEyeAspectLoc = -1;
+  GLint uDistortionModeLoc = -1;
+  GLint uEyeSwapModeLoc = -1;
+  GLint uCalibrationGridLoc = -1;
 
   // Sensor & Orientation State
   std::mutex sensorMutex;
@@ -294,9 +339,12 @@ struct DeviceDelegate3DOF::State {
         uSceneTextureLoc = vrb::GetUniformLocation(program, "u_sceneTexture");
         uLensCenterLeftLoc = vrb::GetUniformLocation(program, "u_lensCenterLeft");
         uLensCenterRightLoc = vrb::GetUniformLocation(program, "u_lensCenterRight");
+        uEyeTanScaleLoc = vrb::GetUniformLocation(program, "u_eyeTanScale");
         uK1Loc = vrb::GetUniformLocation(program, "u_k1");
         uK2Loc = vrb::GetUniformLocation(program, "u_k2");
-        uEyeAspectLoc = vrb::GetUniformLocation(program, "u_eyeAspect");
+        uDistortionModeLoc = vrb::GetUniformLocation(program, "u_distortionMode");
+        uEyeSwapModeLoc = vrb::GetUniformLocation(program, "u_eyeSwapMode");
+        uCalibrationGridLoc = vrb::GetUniformLocation(program, "u_calibrationGrid");
       }
     }
   }
@@ -309,50 +357,88 @@ struct DeviceDelegate3DOF::State {
     int32_t eyeWidth = glWidth / 2;
     int32_t eyeHeight = glHeight;
 
-    float halfIPD = profile.ipd / 2.0f; // e.g. 0.032m
-    float d = profile.eyeToScreenDistance > 0.010f ? profile.eyeToScreenDistance : 0.039f; // lens distance in meters
-    float phoneWidthMeters = 0.150f; // Samsung Galaxy A52 screen width ~ 15cm
-    float halfScreenWidth = phoneWidthMeters / 2.0f; // 0.075m
+    // Real Physical Screen dimensions measured from Android DisplayMetrics
+    float W_m = physicalWidthMeters > 0.020f ? physicalWidthMeters : 0.1539f; // Fallback ~15.4cm
+    float H_m = physicalHeightMeters > 0.020f ? physicalHeightMeters : 0.0692f; // Fallback ~6.9cm
+    float W_eye_m = W_m / 2.0f;
 
-    // Compute outer distance (towards screen edge) and inner distance (towards nose divider)
-    float xOuter = halfIPD + (halfScreenWidth / 2.0f);
-    float xInner = std::max(0.005f, halfScreenWidth - halfIPD);
+    float halfIPD = profile.ipd / 2.0f;
+    float d = profile.eyeToScreenDistance > 0.005f ? profile.eyeToScreenDistance : 0.039f;
+    float y0 = profile.trayToLensCenterDistance > 0.005f ? profile.trayToLensCenterDistance : 0.035f;
 
-    // Compute radial distortion scale factor from Cardboard QR profile k1 and k2
-    float rNorm = halfIPD / d;
-    float rNorm2 = rNorm * rNorm;
-    float rNorm4 = rNorm2 * rNorm2;
-    float distortionScale = 1.0f + (profile.k1 * rNorm2) + (profile.k2 * rNorm4);
-    distortionScale = std::min(1.80f, std::max(0.80f, distortionScale));
+    // Left Lens Center in Eye Viewport Meters
+    float cx_left_m = W_eye_m - halfIPD;
+    // Right Lens Center in Eye Viewport Meters
+    float cx_right_m = halfIPD;
 
-    // Convert distances to FOV half-angles in degrees, scaled by Cardboard lens distortion
-    float angleOuterDeg = (float)(std::atan((xOuter * distortionScale) / d) * (180.0 / 3.14159265));
-    float angleInnerDeg = (float)(std::atan((xInner * distortionScale) / d) * (180.0 / 3.14159265));
+    // Vertical Lens Center in Eye Viewport Meters
+    float cy_m = y0;
+    if (profile.verticalAlignment == 1) { // CENTER
+        cy_m = H_m / 2.0f;
+    } else if (profile.verticalAlignment == 2) { // TOP
+        cy_m = H_m - y0;
+    }
 
-    float maxFov = profile.screenFOV > 0.0f ? profile.screenFOV * 0.6f : 55.0f;
-    angleOuterDeg = std::min(maxFov, angleOuterDeg);
-    angleInnerDeg = std::min(maxFov, angleInnerDeg);
+    // 1. LEFT EYE Asymmetric FOV (Tan-Angles)
+    float left_tanLeft = cx_left_m / d;
+    float left_tanRight = (W_eye_m - cx_left_m) / d;
+    float left_tanBottom = cy_m / d;
+    float left_tanTop = (H_m - cy_m) / d;
 
-    float topDeg = std::min(maxFov, (float)(std::atan(((halfScreenWidth * 0.5f) * distortionScale) / d) * (180.0 / 3.14159265)));
-    float bottomDeg = topDeg;
+    // 2. RIGHT EYE Asymmetric FOV (Tan-Angles)
+    float right_tanLeft = cx_right_m / d;
+    float right_tanRight = (W_eye_m - cx_right_m) / d;
+    float right_tanBottom = cy_m / d;
+    float right_tanTop = (H_m - cy_m) / d;
 
-    // LEFT EYE: outer is LEFT, inner is RIGHT
-    vrb::Matrix leftEyeProj = vrb::Matrix::PerspectiveMatrixFromDegrees(
-        angleOuterDeg, angleInnerDeg, topDeg, bottomDeg, near, far);
+    // Apply QR profile max FOV limits if provided in Field 8
+    if (profile.fovLeft > 1.0f) {
+        float maxTanL = std::tan(profile.fovLeft * 3.14159265f / 180.0f);
+        left_tanLeft = std::min(left_tanLeft, maxTanL);
+        right_tanLeft = std::min(right_tanLeft, maxTanL);
+    }
+    if (profile.fovRight > 1.0f) {
+        float maxTanR = std::tan(profile.fovRight * 3.14159265f / 180.0f);
+        left_tanRight = std::min(left_tanRight, maxTanR);
+        right_tanRight = std::min(right_tanRight, maxTanR);
+    }
+    if (profile.fovTop > 1.0f) {
+        float maxTanT = std::tan(profile.fovTop * 3.14159265f / 180.0f);
+        left_tanTop = std::min(left_tanTop, maxTanT);
+        right_tanTop = std::min(right_tanTop, maxTanT);
+    }
+    if (profile.fovBottom > 1.0f) {
+        float maxTanB = std::tan(profile.fovBottom * 3.14159265f / 180.0f);
+        left_tanBottom = std::min(left_tanBottom, maxTanB);
+        right_tanBottom = std::min(right_tanBottom, maxTanB);
+    }
 
-    // RIGHT EYE: inner is LEFT, outer is RIGHT
-    vrb::Matrix rightEyeProj = vrb::Matrix::PerspectiveMatrixFromDegrees(
-        angleInnerDeg, angleOuterDeg, topDeg, bottomDeg, near, far);
+    // Convert tan-angles directly to FOV degrees for perspective projection
+    float left_L_deg = std::atan(left_tanLeft) * (180.0f / 3.14159265f);
+    float left_R_deg = std::atan(left_tanRight) * (180.0f / 3.14159265f);
+    float left_T_deg = std::atan(left_tanTop) * (180.0f / 3.14159265f);
+    float left_B_deg = std::atan(left_tanBottom) * (180.0f / 3.14159265f);
+
+    float right_L_deg = std::atan(right_tanLeft) * (180.0f / 3.14159265f);
+    float right_R_deg = std::atan(right_tanRight) * (180.0f / 3.14159265f);
+    float right_T_deg = std::atan(right_tanTop) * (180.0f / 3.14159265f);
+    float right_B_deg = std::atan(right_tanBottom) * (180.0f / 3.14159265f);
+
+    vrb::Matrix leftEyeProj = vrb::Matrix::PerspectiveMatrixFromDegrees(left_L_deg, left_R_deg, left_T_deg, left_B_deg, near, far);
+    vrb::Matrix rightEyeProj = vrb::Matrix::PerspectiveMatrixFromDegrees(right_L_deg, right_R_deg, right_T_deg, right_B_deg, near, far);
 
     cameras[0]->SetPerspective(leftEyeProj);
     cameras[1]->SetPerspective(rightEyeProj);
 
-    // Apply eye offset matrices (Left = -halfIPD, Right = +halfIPD)
-    cameras[0]->SetEyeTransform(vrb::Matrix::Translation(vrb::Vector(-halfIPD, 0.0f, 0.0f)));
-    cameras[1]->SetEyeTransform(vrb::Matrix::Translation(vrb::Vector(halfIPD, 0.0f, 0.0f)));
+    // Apply eye offset matrices (Eye-in-Head transform)
+    int leftIdx = (eyeSwapTestMode == 1) ? 1 : 0;
+    int rightIdx = (eyeSwapTestMode == 1) ? 0 : 1;
 
-    display->SetFieldOfView(device::Eye::Left, angleOuterDeg, angleInnerDeg, topDeg, bottomDeg);
-    display->SetFieldOfView(device::Eye::Right, angleInnerDeg, angleOuterDeg, topDeg, bottomDeg);
+    cameras[leftIdx]->SetEyeTransform(vrb::Matrix::Translation(vrb::Vector(-halfIPD, 0.0f, 0.0f)));
+    cameras[rightIdx]->SetEyeTransform(vrb::Matrix::Translation(vrb::Vector(halfIPD, 0.0f, 0.0f)));
+
+    display->SetFieldOfView(device::Eye::Left, left_L_deg, left_R_deg, left_T_deg, left_B_deg);
+    display->SetFieldOfView(device::Eye::Right, right_L_deg, right_R_deg, right_T_deg, right_B_deg);
     display->SetEyeResolution(eyeWidth, eyeHeight);
     display->SetEyeOffset(device::Eye::Left, -halfIPD, 0.0f, 0.0f);
     display->SetEyeOffset(device::Eye::Right, halfIPD, 0.0f, 0.0f);
@@ -480,10 +566,33 @@ void DeviceDelegate3DOF::RecenterYaw() {
 void DeviceDelegate3DOF::SetViewerProfile(const ViewerProfile& aProfile) {
   m.profile = aProfile;
   m.UpdateDisplay();
+  LogCurrentTelemetry();
 }
 
 const ViewerProfile& DeviceDelegate3DOF::GetViewerProfile() const {
   return m.profile;
+}
+
+void DeviceDelegate3DOF::SetPhysicalScreenDimensions(float widthMeters, float heightMeters, float xdpi, float ydpi) {
+  m.physicalWidthMeters = widthMeters;
+  m.physicalHeightMeters = heightMeters;
+  m.xdpi = xdpi;
+  m.ydpi = ydpi;
+  m.UpdateDisplay();
+  LogCurrentTelemetry();
+}
+
+void DeviceDelegate3DOF::SetDistortionTestMode(int mode) {
+  m.distortionTestMode = mode;
+}
+
+void DeviceDelegate3DOF::SetEyeSwapTestMode(int mode) {
+  m.eyeSwapTestMode = mode;
+  m.UpdateDisplay();
+}
+
+void DeviceDelegate3DOF::SetCalibrationGridMode(bool enabled) {
+  m.calibrationGridMode = enabled;
 }
 
 void DeviceDelegate3DOF::SetIPD(const float aIPD) {
@@ -502,26 +611,30 @@ void DeviceDelegate3DOF::SetCameraPosOffset(const float aX, const float aY, cons
 }
 
 void DeviceDelegate3DOF::LogCurrentTelemetry() {
-  vrb::Quaternion qRaw;
-  {
-    std::lock_guard<std::mutex> lock(m.sensorMutex);
-    qRaw = m.rawSensorOrientation;
-  }
-  vrb::Quaternion qFinal = (m.recenterYawQuat * qRaw).Normalize();
-  float sinp = 2.0f * (qFinal.w() * qFinal.x() - qFinal.y() * qFinal.z());
-  float pitch = 0.0f;
-  if (std::abs(sinp) >= 1.0f) {
-    pitch = std::copysign(3.14159265f / 2.0f, sinp) * (180.0f / 3.14159265f);
-  } else {
-    pitch = std::asin(sinp) * (180.0f / 3.14159265f);
-  }
-  float yaw = std::atan2(2.0f * (qFinal.w() * qFinal.y() + qFinal.z() * qFinal.x()),
-                         1.0f - 2.0f * (qFinal.x() * qFinal.x() + qFinal.y() * qFinal.y())) * (180.0f / 3.14159265f);
-  float roll = std::atan2(2.0f * (qFinal.w() * qFinal.z() + qFinal.x() * qFinal.y()),
-                          1.0f - 2.0f * (qFinal.y() * qFinal.y() + qFinal.z() * qFinal.z())) * (180.0f / 3.14159265f);
+  float W_m = m.physicalWidthMeters > 0.020f ? m.physicalWidthMeters : 0.1539f;
+  float H_m = m.physicalHeightMeters > 0.020f ? m.physicalHeightMeters : 0.0692f;
+  float W_eye_m = W_m / 2.0f;
+  float halfIPD = m.profile.ipd / 2.0f;
+  float d = m.profile.eyeToScreenDistance > 0.005f ? m.profile.eyeToScreenDistance : 0.039f;
+  float y0 = m.profile.trayToLensCenterDistance > 0.005f ? m.profile.trayToLensCenterDistance : 0.035f;
 
-  LOG_TELEMETRY("[TELEMETRY SNAPSHOT] Head: Yaw=%.2f° Pitch=%.2f° Roll=%.2f° | Pos=(%.2f, %.2f, %.2f) | FOV=%.1f° IPD=%.4fm",
-                yaw, pitch, roll, m.position.x(), m.position.y(), m.position.z(), m.profile.screenFOV, m.profile.ipd);
+  float cx_left_m = W_eye_m - halfIPD;
+  float cx_right_m = halfIPD;
+  float cy_m = (m.profile.verticalAlignment == 1) ? (H_m / 2.0f) : ((m.profile.verticalAlignment == 2) ? (H_m - y0) : y0);
+
+  float left_L_deg = std::atan(cx_left_m / d) * (180.0f / 3.14159265f);
+  float left_R_deg = std::atan((W_eye_m - cx_left_m) / d) * (180.0f / 3.14159265f);
+  float left_T_deg = std::atan((H_m - cy_m) / d) * (180.0f / 3.14159265f);
+  float left_B_deg = std::atan(cy_m / d) * (180.0f / 3.14159265f);
+
+  float right_L_deg = std::atan(cx_right_m / d) * (180.0f / 3.14159265f);
+  float right_R_deg = std::atan((W_eye_m - cx_right_m) / d) * (180.0f / 3.14159265f);
+
+  LOG_TELEMETRY("\n=== CARDBOARD PROFILE ===\nname = %s\nipd = %.6f m\neyeToScreenDistance = %.6f m\ntrayToLensCenterDistance = %.6f m\nverticalAlignment = %d\nscreenFOV = %.1f°\nk1 = %.6f, k2 = %.6f\n\n=== DISPLAY ===\npixelWidth = %d, pixelHeight = %d\nphysicalWidthMeters = %.6f m, physicalHeightMeters = %.6f m\nxdpi = %.2f, ydpi = %.2f\n\n=== LEFT ===\neyeTransform = Translation(%.4f, 0.0, 0.0)\nfieldOfView = (left=%.1f°, right=%.1f°, top=%.1f°, bottom=%.1f°)\nviewport = (x=0, y=0, w=%d, h=%d)\nlensCenter = (%.4f, %.4f)\ntextureMapping = LEFT texture -> LEFT display region\n\n=== RIGHT ===\neyeTransform = Translation(%.4f, 0.0, 0.0)\nfieldOfView = (left=%.1f°, right=%.1f°, top=%.1f°, bottom=%.1f°)\nviewport = (x=%d, y=0, w=%d, h=%d)\nlensCenter = (%.4f, %.4f)\ntextureMapping = RIGHT texture -> RIGHT display region",
+                m.profile.name.c_str(), m.profile.ipd, m.profile.eyeToScreenDistance, m.profile.trayToLensCenterDistance, m.profile.verticalAlignment, m.profile.screenFOV, m.profile.k1, m.profile.k2,
+                m.glWidth, m.glHeight, W_m, H_m, m.xdpi, m.ydpi,
+                -halfIPD, left_L_deg, left_R_deg, left_T_deg, left_B_deg, m.glWidth / 2, m.glHeight, (cx_left_m / W_eye_m), (cy_m / H_m),
+                +halfIPD, right_L_deg, right_R_deg, left_T_deg, left_B_deg, m.glWidth / 2, m.glWidth / 2, m.glHeight, (cx_right_m / W_eye_m), (cy_m / H_m));
 }
 
 void DeviceDelegate3DOF::SetDwellEnabled(const bool aEnabled) {
@@ -606,23 +719,15 @@ void DeviceDelegate3DOF::StartFrame(const FramePrediction aPrediction) {
 
   // Update left and right eye cameras
   float halfIPD = m.profile.ipd / 2.0f;
-  m.cameras[0]->SetHeadTransform(headTransform);
-  m.cameras[0]->SetEyeTransform(vrb::Matrix::Translation(vrb::Vector(-halfIPD, 0.0f, 0.0f)));
-  m.cameras[1]->SetHeadTransform(headTransform);
-  m.cameras[1]->SetEyeTransform(vrb::Matrix::Translation(vrb::Vector(halfIPD, 0.0f, 0.0f)));
+  int leftIdx = (m.eyeSwapTestMode == 1) ? 1 : 0;
+  int rightIdx = (m.eyeSwapTestMode == 1) ? 0 : 1;
+
+  m.cameras[leftIdx]->SetHeadTransform(headTransform);
+  m.cameras[leftIdx]->SetEyeTransform(vrb::Matrix::Translation(vrb::Vector(-halfIPD, 0.0f, 0.0f)));
+  m.cameras[rightIdx]->SetHeadTransform(headTransform);
+  m.cameras[rightIdx]->SetEyeTransform(vrb::Matrix::Translation(vrb::Vector(halfIPD, 0.0f, 0.0f)));
 
   m.frameCount++;
-  if (m.frameCount % 60 == 0) {
-    float sinp = 2.0f * (qFinal.w() * qFinal.x() - qFinal.y() * qFinal.z());
-    float pitch = (std::abs(sinp) >= 1.0f ? std::copysign(3.14159265f / 2.0f, sinp) : std::asin(sinp)) * (180.0f / 3.14159265f);
-    float yaw = std::atan2(2.0f * (qFinal.w() * qFinal.y() + qFinal.z() * qFiltered.x()),
-                           1.0f - 2.0f * (qFinal.x() * qFinal.x() + qFinal.y() * qFinal.y())) * (180.0f / 3.14159265f);
-    float roll = std::atan2(2.0f * (qFinal.w() * qFinal.z() + qFinal.x() * qFinal.y()),
-                            1.0f - 2.0f * (qFinal.y() * qFinal.y() + qFinal.z() * qFinal.z())) * (180.0f / 3.14159265f);
-
-    LOG_TELEMETRY("[3DOF CAMERA STREAM] Yaw=%.2f° Pitch=%.2f° Roll=%.2f° | HeadPos=(%.2f, %.2f, %.2f) | FOV=%.1f° IPD=%.4fm k1=%.3f k2=%.3f",
-                  yaw, pitch, roll, m.position.x(), m.position.y(), m.position.z(), m.profile.screenFOV, m.profile.ipd, m.profile.k1, m.profile.k2);
-  }
 
   // Update Gaze pointer transform
   if (m.controller) {
@@ -673,45 +778,11 @@ void DeviceDelegate3DOF::StartFrame(const FramePrediction aPrediction) {
 }
 
 void DeviceDelegate3DOF::BindEye(const device::Eye aEye) {
-  // Always split screen into Left and Right eye viewports (Side-by-Side SBS mode) for 3DOF Cardboard VR viewers
   int32_t eyeWidth = m.glWidth > 0 ? m.glWidth / 2 : 960;
   int32_t eyeHeight = m.glHeight > 0 ? m.glHeight : 1080;
 
-  if (m.glWidth <= 0 || m.glHeight <= 0) {
-    int32_t xOffset = (aEye == device::Eye::Left) ? 0 : eyeWidth;
-    VRB_GL_CHECK(glViewport(xOffset, 0, eyeWidth, eyeHeight));
-    return;
-  }
-
-  // Calculate physical screen scaling (assume ~15cm screen width, ~7cm screen height for Samsung Galaxy A52)
-  float phoneWidthMeters = 0.150f;
-  float pixelsPerMeter = (float)m.glWidth / phoneWidthMeters;
-  
-  float halfIPD = m.profile.ipd / 2.0f; // e.g. 0.032m for 64mm IPD
-  float halfScreenWidth = phoneWidthMeters / 2.0f; // 0.075m
-  float halfScreenCenter = halfScreenWidth / 2.0f; // 0.0375m
-
-  // Horizontal shift offset relative to lens optical center
-  float shiftMeters = halfIPD - halfScreenCenter; // e.g. 0.032 - 0.0375 = -0.0055m
-  int32_t shiftPixels = (int32_t)(shiftMeters * pixelsPerMeter);
-
-  int32_t xOffset = 0;
-  if (aEye == device::Eye::Left) {
-    xOffset = shiftPixels; // Shifts viewport for left eye
-  } else {
-    xOffset = eyeWidth - shiftPixels; // Shifts viewport for right eye
-  }
-
-  // Vertical alignment offset calculation from trayToLensCenterDistance (Field 6)
-  int32_t yOffset = 0;
-  if (m.profile.verticalAlignment == 0) { // BOTTOM alignment
-    float defaultTrayLensCenter = 0.035f; // 35mm default
-    float deltaY = m.profile.trayToLensCenterDistance - defaultTrayLensCenter;
-    yOffset = (int32_t)(deltaY * pixelsPerMeter);
-    yOffset = std::max(-100, std::min(100, yOffset));
-  }
-
-  VRB_GL_CHECK(glViewport(xOffset, yOffset, eyeWidth, eyeHeight));
+  int32_t xOffset = (aEye == device::Eye::Left) ? 0 : eyeWidth;
+  VRB_GL_CHECK(glViewport(xOffset, 0, eyeWidth, eyeHeight));
 }
 
 void DeviceDelegate3DOF::EndFrame(const FrameEndMode aMode) {
@@ -735,27 +806,41 @@ void DeviceDelegate3DOF::EndFrame(const FrameEndMode aMode) {
   // 4. Activate Distortion Shader
   VRB_GL_CHECK(glUseProgram(m.program));
 
-  // Compute optical lens center coordinates in normalized eye viewport [0, 1]
+  float W_m = m.physicalWidthMeters > 0.020f ? m.physicalWidthMeters : 0.1539f;
+  float H_m = m.physicalHeightMeters > 0.020f ? m.physicalHeightMeters : 0.0692f;
+  float W_eye_m = W_m / 2.0f;
+
   float halfIPD = m.profile.ipd / 2.0f;
-  float shiftMeters = halfIPD - 0.0375f;
-  float shiftNormX = shiftMeters / 0.075f;
+  float d = m.profile.eyeToScreenDistance > 0.005f ? m.profile.eyeToScreenDistance : 0.039f;
+  float y0 = m.profile.trayToLensCenterDistance > 0.005f ? m.profile.trayToLensCenterDistance : 0.035f;
 
-  float deltaY = (m.profile.verticalAlignment == 0) ? (m.profile.trayToLensCenterDistance - 0.035f) : 0.0f;
-  float shiftNormY = deltaY / 0.070f;
+  float cx_left_m = W_eye_m - halfIPD;
+  float cx_right_m = halfIPD;
 
-  float lensLeftX = 0.5f + shiftNormX;
-  float lensLeftY = 0.5f + shiftNormY;
+  float cy_m = y0;
+  if (m.profile.verticalAlignment == 1) { // CENTER
+      cy_m = H_m / 2.0f;
+  } else if (m.profile.verticalAlignment == 2) { // TOP
+      cy_m = H_m - y0;
+  }
 
-  float lensRightX = 0.5f - shiftNormX;
-  float lensRightY = 0.5f + shiftNormY;
+  float lensLeftX = cx_left_m / W_eye_m;
+  float lensLeftY = cy_m / H_m;
 
-  float eyeAspect = (float)(m.glWidth / 2) / (float)m.glHeight;
+  float lensRightX = cx_right_m / W_eye_m;
+  float lensRightY = cy_m / H_m;
+
+  float eyeTanScaleX = W_eye_m / d;
+  float eyeTanScaleY = H_m / d;
 
   VRB_GL_CHECK(glUniform2f(m.uLensCenterLeftLoc, lensLeftX, lensLeftY));
   VRB_GL_CHECK(glUniform2f(m.uLensCenterRightLoc, lensRightX, lensRightY));
+  VRB_GL_CHECK(glUniform2f(m.uEyeTanScaleLoc, eyeTanScaleX, eyeTanScaleY));
   VRB_GL_CHECK(glUniform1f(m.uK1Loc, m.profile.k1));
   VRB_GL_CHECK(glUniform1f(m.uK2Loc, m.profile.k2));
-  VRB_GL_CHECK(glUniform1f(m.uEyeAspectLoc, eyeAspect));
+  VRB_GL_CHECK(glUniform1i(m.uDistortionModeLoc, m.distortionTestMode));
+  VRB_GL_CHECK(glUniform1i(m.uEyeSwapModeLoc, m.eyeSwapTestMode));
+  VRB_GL_CHECK(glUniform1i(m.uCalibrationGridLoc, m.calibrationGridMode ? 1 : 0));
 
   VRB_GL_CHECK(glActiveTexture(GL_TEXTURE0));
   VRB_GL_CHECK(glBindTexture(GL_TEXTURE_2D, m.fboTexture));
@@ -774,6 +859,9 @@ void DeviceDelegate3DOF::EndFrame(const FrameEndMode aMode) {
 
   if (m.aPositionLoc >= 0) {
     VRB_GL_CHECK(glDisableVertexAttribArray(m.aPositionLoc));
+  }
+  if (m.aUVLoc >= 0) {
+    VRB_GL_CHECK(glDisableVertexAttribArray(m.aUVLoc));
   }
 }
 

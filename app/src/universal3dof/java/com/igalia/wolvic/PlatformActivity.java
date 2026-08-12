@@ -114,12 +114,14 @@ public class PlatformActivity extends ComponentActivity implements SensorEventLi
                         Log.d(LOGTAG, "Universal3DOF onSurfaceCreated");
                         activityCreated(getAssets());
                         mSurfaceCreated = true;
+                        sendPhysicalDisplayMetricsToNative();
                         notifyPendingEvents();
                     }
 
                     @Override
                     public void onSurfaceChanged(GL10 gl, int width, int height) {
                         Log.d(LOGTAG, "Universal3DOF onSurfaceChanged: " + width + "x" + height);
+                        sendPhysicalDisplayMetricsToNative();
                         updateViewport(width, height);
                     }
 
@@ -142,7 +144,7 @@ public class PlatformActivity extends ComponentActivity implements SensorEventLi
                 });
 
         initializeSensors();
-        setupUI();
+        setImmersiveSticky();
     }
 
     private void initializeSensors() {
@@ -587,8 +589,19 @@ public class PlatformActivity extends ComponentActivity implements SensorEventLi
         }
     }
 
-    private void setupUI() {
-        setImmersiveSticky();
+    public void sendPhysicalDisplayMetricsToNative() {
+        try {
+            android.util.DisplayMetrics metrics = getResources().getDisplayMetrics();
+            float xdpi = metrics.xdpi;
+            float ydpi = metrics.ydpi;
+            float widthMeters = (metrics.widthPixels / xdpi) * 0.0254f;
+            float heightMeters = (metrics.heightPixels / ydpi) * 0.0254f;
+            Log.i(LOGTAG, String.format("Physical Display: %dx%d px | xdpi=%.1f, ydpi=%.1f | Real size: %.4fm x %.4fm",
+                    metrics.widthPixels, metrics.heightPixels, xdpi, ydpi, widthMeters, heightMeters));
+            queueRunnable(() -> setPhysicalScreenDimensions(widthMeters, heightMeters, xdpi, ydpi));
+        } catch (Exception e) {
+            Log.e(LOGTAG, "Error calculating physical display metrics: " + e.getMessage());
+        }
     }
 
     private native void activityCreated(Object aAssetManager);
@@ -606,4 +619,8 @@ public class PlatformActivity extends ComponentActivity implements SensorEventLi
     private native void setIPD(float ipd);
     private native void setFullViewerProfile(String name, float ipd, float eyeToScreen, int vertAlign, float trayToLens, float fov, float k1, float k2, float fovL, float fovR, float fovT, float fovB);
     private native void triggerTelemetryLog();
+    private native void setPhysicalScreenDimensions(float widthMeters, float heightMeters, float xdpi, float ydpi);
+    private native void setDistortionTestMode(int mode);
+    private native void setEyeSwapTestMode(int mode);
+    private native void setCalibrationGridMode(boolean enabled);
 }
