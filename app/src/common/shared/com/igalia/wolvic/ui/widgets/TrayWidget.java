@@ -511,7 +511,7 @@ public class TrayWidget extends UIWidget implements WidgetManagerDelegate.Update
         aPlacement.height = WidgetPlacement.dpDimension(context, R.dimen.tray_height);
         aPlacement.worldWidth = WidgetPlacement.floatDimension(getContext(), R.dimen.tray_world_width);
         aPlacement.translationY = WidgetPlacement.unitFromMeters(context, R.dimen.tray_world_y) -
-                WidgetPlacement.unitFromMeters(context, R.dimen.window_world_y);
+                WidgetPlacement.unitFromMeters(context, R.dimen.window_world_y) - 0.15f;
         aPlacement.anchorX = 0.5f;
         aPlacement.anchorY = 0.5f;
         aPlacement.parentAnchorX = 0.5f;
