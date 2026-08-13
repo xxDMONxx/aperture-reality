@@ -131,7 +131,6 @@ public class WindowWidget extends UIWidget implements SessionChangeListener,
     private int mHandle;
     private TopBarWidget mTopBar;
     private TitleBarWidget mTitleBar;
-    private ApertureSideControlsWidget mApertureSideControls;
     private WidgetManagerDelegate mWidgetManager;
     private PromptDialogWidget mAlertDialog;
     private PromptDialogWidget mConfirmDialog;
@@ -264,9 +263,6 @@ public class WindowWidget extends UIWidget implements SessionChangeListener,
 
         mTitleBar = new TitleBarWidget(aContext);
         mTitleBar.attachToWindow(this);
-
-        mApertureSideControls = new ApertureSideControlsWidget(aContext);
-        mApertureSideControls.attachToWindow(this);
 
         mPromptDelegate = new PromptDelegate(getContext());
         mPromptDelegate.attachToWindow(this);

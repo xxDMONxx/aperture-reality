@@ -651,6 +651,7 @@ void DeviceDelegate3DOF::StartFrame(const FramePrediction aPrediction) {
   VRB_GL_CHECK(glEnable(GL_CULL_FACE));
   VRB_GL_CHECK(glEnable(GL_BLEND));
   VRB_GL_CHECK(glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT));
+  mShouldRender = true;
 
   vrb::Quaternion qRaw;
   {
@@ -734,6 +735,11 @@ void DeviceDelegate3DOF::StartFrame(const FramePrediction aPrediction) {
       }
     }
     m.lastHeadOrientation = qFinal;
+  }
+
+  if (m.display) {
+    m.display->SetEyeTransform(device::Eye::Left, m.cameras[0]->GetEyeTransform());
+    m.display->SetEyeTransform(device::Eye::Right, m.cameras[1]->GetEyeTransform());
   }
 }
 

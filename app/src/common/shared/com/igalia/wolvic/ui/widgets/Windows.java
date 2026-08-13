@@ -833,8 +833,32 @@ public class Windows implements TrayListener, TopBarWidget.Delegate, TitleBarWid
     }
 
     @Nullable
-    private WindowWidget getRightWindow() {
+    public WindowWidget getRightWindow() {
         return getWindowWithPlacement(WindowPlacement.RIGHT);
+    }
+
+    @Nullable
+    public WindowWidget getRightmostWindow() {
+        WindowWidget right = getRightWindow();
+        if (right != null) return right;
+        WindowWidget front = getFrontWindow();
+        if (front != null) return front;
+        WindowWidget focused = getFocusedWindow();
+        if (focused != null) return focused;
+        List<WindowWidget> windows = getCurrentWindows();
+        return (windows == null || windows.isEmpty()) ? null : windows.get(windows.size() - 1);
+    }
+
+    @Nullable
+    public WindowWidget getLeftmostWindow() {
+        WindowWidget left = getLeftWindow();
+        if (left != null) return left;
+        WindowWidget front = getFrontWindow();
+        if (front != null) return front;
+        WindowWidget focused = getFocusedWindow();
+        if (focused != null) return focused;
+        List<WindowWidget> windows = getCurrentWindows();
+        return (windows == null || windows.isEmpty()) ? null : windows.get(0);
     }
 
     private void restoreWindows() {

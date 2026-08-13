@@ -7,6 +7,8 @@ package com.igalia.wolvic.ui.widgets;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
+import android.view.View;
+import android.widget.LinearLayout;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
@@ -14,6 +16,8 @@ import com.igalia.wolvic.PlatformActivity;
 import com.igalia.wolvic.R;
 
 public class ApertureSideControlsWidget extends UIWidget {
+    private TextView mBtnTogglePanel;
+    private LinearLayout mControlsContainer;
     private TextView mBtnRecenter;
     private TextView mTxtIpdValue;
     private TextView mBtnIpdMinus;
@@ -21,7 +25,9 @@ public class ApertureSideControlsWidget extends UIWidget {
     private TextView mBtnQrCardboard;
     private SeekBar mSeekBarIpd;
 
-    private float mCurrentIpdMM = 64.0f; // Default 64mm = 0.064m
+    private float mCurrentIpdMM = 60.7f; // Default 60.7mm = 0.0607m
+    private boolean mIsExpanded = false;
+    private WindowWidget mAttachedWindow;
 
     public ApertureSideControlsWidget(Context aContext) {
         super(aContext);
@@ -40,9 +46,9 @@ public class ApertureSideControlsWidget extends UIWidget {
 
     @Override
     protected void initializeWidgetPlacement(WidgetPlacement aPlacement) {
-        aPlacement.width = WidgetPlacement.dpDimension(getContext(), R.dimen.side_controls_width);
-        aPlacement.height = WidgetPlacement.dpDimension(getContext(), R.dimen.side_controls_height);
-        aPlacement.worldWidth = WidgetPlacement.floatDimension(getContext(), R.dimen.side_controls_world_width);
+        aPlacement.width = 160;
+        aPlacement.height = 60;
+        aPlacement.worldWidth = 0.18f;
         aPlacement.visible = true;
         aPlacement.cylinder = true;
         aPlacement.name = "ApertureSideControls";
@@ -52,11 +58,21 @@ public class ApertureSideControlsWidget extends UIWidget {
         LayoutInflater inflater = (LayoutInflater) getContext().getSystemService(Context.LAYOUT_INFLATER_SERVICE);
         inflater.inflate(R.layout.aperture_side_controls, this, true);
 
+        mBtnTogglePanel = findViewById(R.id.btn_toggle_panel);
+        mControlsContainer = findViewById(R.id.panel_controls_container);
         mBtnRecenter = findViewById(R.id.btn_recenter);
         mTxtIpdValue = findViewById(R.id.txt_ipd_value);
         mBtnIpdMinus = findViewById(R.id.btn_ipd_minus);
         mBtnIpdPlus = findViewById(R.id.btn_ipd_plus);
         mSeekBarIpd = findViewById(R.id.seekbar_ipd);
+        mBtnQrCardboard = findViewById(R.id.btn_qr_cardboard);
+
+        if (mBtnTogglePanel != null) {
+            mBtnTogglePanel.setOnClickListener(v -> {
+                mIsExpanded = !mIsExpanded;
+                updateExpandedState();
+            });
+        }
 
         if (mBtnRecenter != null) {
             mBtnRecenter.setOnClickListener(v -> {
@@ -77,6 +93,7 @@ public class ApertureSideControlsWidget extends UIWidget {
                         applyIpd();
                     }
                 }
+
                 @Override public void onStartTrackingTouch(SeekBar seekBar) {}
                 @Override public void onStopTrackingTouch(SeekBar seekBar) {}
             });
@@ -85,29 +102,40 @@ public class ApertureSideControlsWidget extends UIWidget {
         if (mBtnIpdMinus != null) {
             mBtnIpdMinus.setOnClickListener(v -> {
                 mCurrentIpdMM = Math.max(54.0f, mCurrentIpdMM - 0.5f);
-                updateSeekBarFromValue();
                 applyIpd();
             });
         }
 
-        mBtnQrCardboard = findViewById(R.id.btn_qr_cardboard);
+        if (mBtnIpdPlus != null) {
+            mBtnIpdPlus.setOnClickListener(v -> {
+                mCurrentIpdMM = Math.min(74.0f, mCurrentIpdMM + 0.5f);
+                applyIpd();
+            });
+        }
+
         if (mBtnQrCardboard != null) {
             mBtnQrCardboard.setOnClickListener(v -> {
                 if (getContext() instanceof PlatformActivity) {
                     ((PlatformActivity) getContext()).promptCardboardQrScanner(newIpdMM -> {
                         mCurrentIpdMM = newIpdMM;
-                        updateSeekBarFromValue();
                         applyIpd();
                     });
                 }
             });
         }
+
+        updateExpandedState();
     }
 
-    private void updateSeekBarFromValue() {
-        if (mSeekBarIpd != null) {
-            int progress = Math.round((mCurrentIpdMM - 54.0f) * 10.0f);
-            mSeekBarIpd.setProgress(progress);
+    private void updateExpandedState() {
+        if (mControlsContainer != null) {
+            mControlsContainer.setVisibility(mIsExpanded ? View.VISIBLE : View.GONE);
+        }
+        if (mBtnTogglePanel != null) {
+            mBtnTogglePanel.setText(mIsExpanded ? "⚙️ Ocultar 3D" : "⚙️ 3D / IPD");
+        }
+        if (mAttachedWindow != null) {
+            attachToWindow(mAttachedWindow);
         }
     }
 
@@ -115,7 +143,10 @@ public class ApertureSideControlsWidget extends UIWidget {
         if (mTxtIpdValue != null) {
             mTxtIpdValue.setText(String.format("IPD: %.1f mm", mCurrentIpdMM));
         }
-        updateSeekBarFromValue();
+        if (mSeekBarIpd != null) {
+            int progress = Math.round((mCurrentIpdMM - 54.0f) * 10.0f);
+            mSeekBarIpd.setProgress(progress);
+        }
     }
 
     private void applyIpd() {
@@ -128,6 +159,7 @@ public class ApertureSideControlsWidget extends UIWidget {
 
     public void attachToWindow(WindowWidget aWindow) {
         if (aWindow == null) return;
+        mAttachedWindow = aWindow;
         mWidgetPlacement.parentHandle = aWindow.getHandle();
         mWidgetPlacement.parentAnchorX = 1.0f; // Right edge of window
         mWidgetPlacement.parentAnchorY = 0.5f; // Center height
@@ -144,13 +176,20 @@ public class ApertureSideControlsWidget extends UIWidget {
             int windowWidthPx = aWindow.getPlacement().width;
             int windowHeightPx = aWindow.getPlacement().height;
 
-            mWidgetPlacement.worldWidth = Math.max(0.40f, windowWorldWidth * 0.35f);
-            mWidgetPlacement.width = Math.max(360, (int) (windowWidthPx * 0.35f));
-            mWidgetPlacement.height = Math.max(260, (int) (windowHeightPx * 0.45f));
+            if (mIsExpanded) {
+                mWidgetPlacement.worldWidth = Math.max(0.50f, windowWorldWidth * 0.40f);
+                mWidgetPlacement.width = Math.max(460, (int) (windowWidthPx * 0.40f));
+                mWidgetPlacement.height = Math.max(400, (int) (windowHeightPx * 0.65f));
+            } else {
+                mWidgetPlacement.worldWidth = Math.max(0.32f, windowWorldWidth * 0.22f);
+                mWidgetPlacement.width = Math.max(260, (int) (windowWidthPx * 0.22f));
+                mWidgetPlacement.height = Math.max(100, (int) (windowHeightPx * 0.15f));
+            }
         }
 
         if (mWidgetManager != null) {
             mWidgetManager.addWidget(this);
+            mWidgetManager.updateWidget(this);
         }
     }
 

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@drawable/aperture_side_panel_bg"
+    android:padding="12dp">
+
+    <!-- DISTANCE LABEL / ICON -->
+    <TextView
+        android:id="@+id/txt_distance_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:text="🔍 Distancia"
+        android:textColor="@color/fog"
+        android:textSize="15sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="10dp" />
+
+    <!-- ACERCAR (CLOSER / UP ARROW) -->
+    <TextView
+        android:id="@+id/btn_distance_closer"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:gravity="center"
+        android:text="⬆️"
+        android:textColor="@color/white"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:background="@drawable/aperture_button_bg"
+        android:focusable="true"
+        android:clickable="true" />
+
+    <View
+        android:layout_width="40dp"
+        android:layout_height="1dp"
+        android:layout_marginTop="12dp"
+        android:layout_marginBottom="12dp"
+        android:background="@color/steel" />
+
+    <!-- ALEJAR (FURTHER / DOWN ARROW) -->
+    <TextView
+        android:id="@+id/btn_distance_further"
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:gravity="center"
+        android:text="⬇️"
+        android:textColor="@color/white"
+        android:textSize="28sp"
+        android:textStyle="bold"
+        android:background="@drawable/aperture_button_bg"
+        android:focusable="true"
+        android:clickable="true" />
+
+</LinearLayout>

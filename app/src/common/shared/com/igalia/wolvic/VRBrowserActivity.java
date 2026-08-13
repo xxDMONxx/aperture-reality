@@ -72,6 +72,8 @@ import com.igalia.wolvic.telemetry.TelemetryService;
 import com.igalia.wolvic.ui.OffscreenDisplay;
 import com.igalia.wolvic.ui.adapters.Language;
 import com.igalia.wolvic.ui.widgets.AbstractTabsBar;
+import com.igalia.wolvic.ui.widgets.ApertureLeftControlsWidget;
+import com.igalia.wolvic.ui.widgets.ApertureSideControlsWidget;
 import com.igalia.wolvic.ui.widgets.AppServicesProvider;
 import com.igalia.wolvic.ui.widgets.HorizontalTabsBar;
 import com.igalia.wolvic.ui.widgets.KeyboardWidget;
@@ -223,6 +225,8 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
     NavigationBarWidget mNavigationBar;
     AbstractTabsBar mTabsBar;
     TrayWidget mTray;
+    ApertureSideControlsWidget mApertureSideControls;
+    ApertureLeftControlsWidget mApertureLeftControls;
     WhatsNewWidget mWhatsNewWidget = null;
     WebXRInterstitialWidget mWebXRInterstitial;
     PermissionDelegate mPermissionDelegate;
@@ -431,6 +435,8 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
 
         // Windows
         mWindows = new Windows(this);
+        mApertureSideControls = new ApertureSideControlsWidget(this);
+        mApertureLeftControls = new ApertureLeftControlsWidget(this);
         mWindows.setDelegate(new Windows.Delegate() {
             @Override
             public void onFocusedWindowChanged(@NonNull WindowWidget aFocusedWindow, @Nullable WindowWidget aPrevFocusedWindow) {
@@ -441,12 +447,36 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
             @Override
             public void onWindowBorderChanged(@NonNull WindowWidget aChangeWindow) {
                 mKeyboard.proxifyLayerIfNeeded(mWindows.getCurrentWindows());
+                if (mWindows != null) {
+                    WindowWidget rightmost = mWindows.getRightmostWindow();
+                    if (mApertureSideControls != null && rightmost != null) {
+                        mApertureSideControls.attachToWindow(rightmost);
+                        updateWidget(mApertureSideControls);
+                    }
+                    WindowWidget leftmost = mWindows.getLeftmostWindow();
+                    if (mApertureLeftControls != null && leftmost != null) {
+                        mApertureLeftControls.attachToWindow(leftmost);
+                        updateWidget(mApertureLeftControls);
+                    }
+                }
             }
 
             @Override
             public void onWindowsMoved() {
                 mNavigationBar.hideAllNotifications();
                 updateWidget(mTray);
+                if (mWindows != null) {
+                    WindowWidget rightmost = mWindows.getRightmostWindow();
+                    if (mApertureSideControls != null && rightmost != null) {
+                        mApertureSideControls.attachToWindow(rightmost);
+                        updateWidget(mApertureSideControls);
+                    }
+                    WindowWidget leftmost = mWindows.getLeftmostWindow();
+                    if (mApertureLeftControls != null && leftmost != null) {
+                        mApertureLeftControls.attachToWindow(leftmost);
+                        updateWidget(mApertureLeftControls);
+                    }
+                }
             }
 
             @Override
@@ -454,6 +484,18 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
                 mTray.setAddWindowVisible(mWindows.canOpenNewWindow());
                 mNavigationBar.hideAllNotifications();
                 updateWidget(mTray);
+                if (mWindows != null) {
+                    WindowWidget rightmost = mWindows.getRightmostWindow();
+                    if (mApertureSideControls != null && rightmost != null) {
+                        mApertureSideControls.attachToWindow(rightmost);
+                        updateWidget(mApertureSideControls);
+                    }
+                    WindowWidget leftmost = mWindows.getLeftmostWindow();
+                    if (mApertureLeftControls != null && leftmost != null) {
+                        mApertureLeftControls.attachToWindow(leftmost);
+                        updateWidget(mApertureLeftControls);
+                    }
+                }
             }
 
             @Override
@@ -492,7 +534,7 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
 
         attachToWindow(mWindows.getFocusedWindow(), null);
 
-        addWidgets(Arrays.asList(mRootWidget, mNavigationBar, mKeyboard, mTray, mTabsBar, mWebXRInterstitial));
+        addWidgets(Arrays.asList(mRootWidget, mNavigationBar, mKeyboard, mTray, mTabsBar, mWebXRInterstitial, mApertureSideControls, mApertureLeftControls));
 
         // Create the platform plugin after widgets are created to be extra safe.
         mPlatformPlugin = createPlatformPlugin(this);
@@ -517,6 +559,16 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
         if (mTabsBar != null) {
             mTabsBar.attachToWindow(aWindow);
         }
+        if (mApertureSideControls != null && mWindows != null) {
+            WindowWidget target = mWindows.getRightmostWindow();
+            if (target == null) target = aWindow;
+            mApertureSideControls.attachToWindow(target);
+        }
+        if (mApertureLeftControls != null && mWindows != null) {
+            WindowWidget leftTarget = mWindows.getLeftmostWindow();
+            if (leftTarget == null) leftTarget = aWindow;
+            mApertureLeftControls.attachToWindow(leftTarget);
+        }
         mWindows.adjustWindowOffsets();
 
         if (aPrevWindow != null) {
@@ -525,6 +577,12 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
             updateWidget(mTray);
             if (mTabsBar != null) {
                 updateWidget(mTabsBar);
+            }
+            if (mApertureSideControls != null) {
+                updateWidget(mApertureSideControls);
+            }
+            if (mApertureLeftControls != null) {
+                updateWidget(mApertureLeftControls);
             }
         }
     }

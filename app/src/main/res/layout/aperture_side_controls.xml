@@ -3,107 +3,135 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:gravity="center_vertical"
-    android:background="@drawable/aperture_side_panel_bg"
-    android:padding="16dp">
+    android:gravity="top|center_horizontal"
+    android:padding="12dp">
 
-    <!-- RECENTER BUTTON -->
+    <!-- TOGGLE BUTTON (ALWAYS VISIBLE ICON / BADGE - ENLARGED FOR EASY AIMING) -->
     <TextView
-        android:id="@+id/btn_recenter"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
+        android:id="@+id/btn_toggle_panel"
+        android:layout_width="wrap_content"
+        android:layout_height="64dp"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
         android:gravity="center"
-        android:text="🎯 Recentrar"
+        android:text="⚙️ 3D / IPD"
         android:textColor="@color/white"
-        android:textSize="17sp"
+        android:textSize="19sp"
         android:textStyle="bold"
         android:background="@drawable/aperture_button_bg"
         android:focusable="true"
         android:clickable="true" />
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginBottom="12dp"
-        android:background="@color/steel" />
-
-    <!-- IPD TITLE / VALUE -->
-    <TextView
-        android:id="@+id/txt_ipd_value"
+    <!-- EXPANDABLE CONTAINER (HIDDEN BY DEFAULT) -->
+    <LinearLayout
+        android:id="@+id/panel_controls_container"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:gravity="center"
-        android:text="IPD: 64.0 mm"
-        android:textColor="@color/fog"
-        android:textSize="15sp"
-        android:textStyle="bold" />
+        android:layout_marginTop="12dp"
+        android:orientation="vertical"
+        android:background="@drawable/aperture_side_panel_bg"
+        android:padding="20dp"
+        android:visibility="gone">
 
-    <!-- IPD CONTROLS -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:layout_marginTop="8dp"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
+        <!-- RECENTER BUTTON -->
         <TextView
-            android:id="@+id/btn_ipd_minus"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:id="@+id/btn_recenter"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
             android:gravity="center"
-            android:text="-"
+            android:text="🎯 Recentrar Vista"
             android:textColor="@color/white"
-            android:textSize="22sp"
+            android:textSize="18sp"
             android:textStyle="bold"
             android:background="@drawable/aperture_button_bg"
             android:focusable="true"
             android:clickable="true" />
 
-        <SeekBar
-            android:id="@+id/seekbar_ipd"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="8dp"
-            android:max="200"
-            android:progress="100"
-            android:progressDrawable="@drawable/media_seekbar_background"
-            android:thumb="@drawable/media_seekbar_thumb" />
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="14dp"
+            android:background="@color/steel" />
 
+        <!-- IPD TITLE / VALUE -->
         <TextView
-            android:id="@+id/btn_ipd_plus"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:id="@+id/txt_ipd_value"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
             android:gravity="center"
-            android:text="+"
-            android:textColor="@color/white"
-            android:textSize="22sp"
+            android:text="IPD: 60.7 mm"
+            android:textColor="@color/fog"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <!-- IPD CONTROLS -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
+
+            <TextView
+                android:id="@+id/btn_ipd_minus"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:gravity="center"
+                android:text="-"
+                android:textColor="@color/white"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:background="@drawable/aperture_button_bg"
+                android:focusable="true"
+                android:clickable="true" />
+
+            <SeekBar
+                android:id="@+id/seekbar_ipd"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:layout_marginEnd="10dp"
+                android:max="200"
+                android:progress="67"
+                android:progressDrawable="@drawable/media_seekbar_background"
+                android:thumb="@drawable/media_seekbar_thumb" />
+
+            <TextView
+                android:id="@+id/btn_ipd_plus"
+                android:layout_width="52dp"
+                android:layout_height="52dp"
+                android:gravity="center"
+                android:text="+"
+                android:textColor="@color/white"
+                android:textSize="28sp"
+                android:textStyle="bold"
+                android:background="@drawable/aperture_button_bg"
+                android:focusable="true"
+                android:clickable="true" />
+        </LinearLayout>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="14dp"
+            android:layout_marginBottom="14dp"
+            android:background="@color/steel" />
+
+        <!-- CARDBOARD QR CODE AUTO CONFIG BUTTON -->
+        <TextView
+            android:id="@+id/btn_qr_cardboard"
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:gravity="center"
+            android:text="📷 Escanear QR Cardboard"
+            android:textColor="@color/azure"
+            android:textSize="15sp"
             android:textStyle="bold"
             android:background="@drawable/aperture_button_bg"
             android:focusable="true"
             android:clickable="true" />
     </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:layout_marginTop="12dp"
-        android:layout_marginBottom="12dp"
-        android:background="@color/steel" />
-
-    <!-- CARDBOARD QR CODE AUTO CONFIG BUTTON -->
-    <TextView
-        android:id="@+id/btn_qr_cardboard"
-        android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:gravity="center"
-        android:text="📷 QR Cardboard"
-        android:textColor="@color/white"
-        android:textSize="15sp"
-        android:textStyle="bold"
-        android:background="@drawable/aperture_button_bg"
-        android:focusable="true"
-        android:clickable="true" />
 </LinearLayout>
