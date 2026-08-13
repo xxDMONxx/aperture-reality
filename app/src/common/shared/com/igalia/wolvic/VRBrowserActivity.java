@@ -322,6 +322,7 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
                             }
                         }
                         updateWidget(mTray);
+                        queueRunnable(() -> updateWidgetNative(mTray.getHandle(), mTray.getPlacement().clone()));
                     }
                 }
 
@@ -338,6 +339,7 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
                             if (!Float.isNaN(scale)) p.worldWidth *= scale;
                         }
                         updateWidget(mApertureSideControls);
+                        queueRunnable(() -> updateWidgetNative(mApertureSideControls.getHandle(), mApertureSideControls.getPlacement().clone()));
                     }
                 }
 
@@ -354,6 +356,7 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
                             if (!Float.isNaN(scale)) p.worldWidth *= scale;
                         }
                         updateWidget(mApertureLeftControls);
+                        queueRunnable(() -> updateWidgetNative(mApertureLeftControls.getHandle(), mApertureLeftControls.getPlacement().clone()));
                     }
                 }
             });
@@ -1833,6 +1836,7 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
                     queueRunnable(() -> updateWidgetNative(entry.getKey(), entry.getValue()));
                 }
                 mPendingNativeWidgetUpdates.clear();
+                mNativeWidgetUpdatesTask = null;
             }, UPDATE_NATIVE_WIDGETS_DELAY, TimeUnit.MILLISECONDS);
         }
     }
