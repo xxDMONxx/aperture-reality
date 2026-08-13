@@ -35,8 +35,8 @@ Este documento sirve como referencia rápida de los elementos de la interfaz de 
 Para ajustar elementos en tiempo real desde la PC mientras usas la aplicación en tu celular:
 
 ```powershell
-# Ajustar la Bandeja Inferior (TrayWidget)
-adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --es target tray --ef x 0.0 --ef y -0.35 --ef z 0.05 --ef rot -45 --ef scale 1.0
+# Ajustar la Bandeja Inferior (TrayWidget) - Posición calibrada por defecto: y = -1.00m
+adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --es target tray --ef x 0.0 --ef y -1.00 --ef z 0.05 --ef rot -45 --ef scale 1.0
 
 # Ajustar el Panel 3D Derecho (ApertureSideControlsWidget)
 adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --es target right --ef x 0.06 --ef y 0.0 --ef z 0.0
