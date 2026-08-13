@@ -194,6 +194,11 @@ public class ApertureSideControlsWidget extends UIWidget {
     }
 
     @Override
+    public void updatePlacementTranslationZ() {
+        getPlacement().translationZ = 0.0f;
+    }
+
+    @Override
     public void onDismiss() {
     }
 }

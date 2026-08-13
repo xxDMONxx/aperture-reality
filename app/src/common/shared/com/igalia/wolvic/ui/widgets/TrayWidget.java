@@ -525,8 +525,7 @@ public class TrayWidget extends UIWidget implements WidgetManagerDelegate.Update
 
     @Override
     public void updatePlacementTranslationZ() {
-        getPlacement().translationZ = WidgetPlacement.unitFromMeters(getContext(), R.dimen.tray_world_z) -
-                WidgetPlacement.getWindowWorldZMeters(getContext());
+        getPlacement().translationZ = 0.05f;
     }
 
     @Override
@@ -603,6 +602,12 @@ public class TrayWidget extends UIWidget implements WidgetManagerDelegate.Update
 
         mAttachedWindow = aWindow;
         mWidgetPlacement.parentHandle = aWindow.getHandle();
+
+        if (aWindow.getPlacement() != null) {
+            float windowWorldWidth = aWindow.getPlacement().worldWidth;
+            float defaultWorldWidth = WidgetPlacement.floatDimension(getContext(), R.dimen.tray_world_width);
+            mWidgetPlacement.worldWidth = Math.max(defaultWorldWidth, windowWorldWidth * 0.70f);
+        }
 
         // ModelView creation and observers setup
         mViewModel = new ViewModelProvider(
