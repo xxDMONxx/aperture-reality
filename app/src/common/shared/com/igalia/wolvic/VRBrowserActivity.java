@@ -312,9 +312,9 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
                         if (reset && focused != null) {
                             mTray.attachToWindow(focused);
                         } else {
-                            if (!Float.isNaN(x)) p.translationX = x;
-                            if (!Float.isNaN(y)) p.translationY = y;
-                            if (!Float.isNaN(z)) p.translationZ = z;
+                            if (!Float.isNaN(x)) p.translationX = WidgetPlacement.unitFromMeters(x);
+                            if (!Float.isNaN(y)) p.translationY = WidgetPlacement.unitFromMeters(y);
+                            if (!Float.isNaN(z)) p.translationZ = WidgetPlacement.unitFromMeters(z);
                             if (!Float.isNaN(rot)) p.rotation = (float) Math.toRadians(rot);
                             if (!Float.isNaN(scale) && focused != null && focused.getPlacement() != null) {
                                 float defaultWorldWidth = WidgetPlacement.floatDimension(VRBrowserActivity.this, R.dimen.tray_world_width);
@@ -332,9 +332,9 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
                         if (reset && focused != null) {
                             mApertureSideControls.attachToWindow(focused);
                         } else {
-                            if (!Float.isNaN(x)) p.translationX = x;
-                            if (!Float.isNaN(y)) p.translationY = y;
-                            if (!Float.isNaN(z)) p.translationZ = z;
+                            if (!Float.isNaN(x)) p.translationX = WidgetPlacement.unitFromMeters(x);
+                            if (!Float.isNaN(y)) p.translationY = WidgetPlacement.unitFromMeters(y);
+                            if (!Float.isNaN(z)) p.translationZ = WidgetPlacement.unitFromMeters(z);
                             if (!Float.isNaN(rot)) p.rotation = (float) Math.toRadians(rot);
                             if (!Float.isNaN(scale)) p.worldWidth *= scale;
                         }
@@ -349,9 +349,9 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
                         if (reset && focused != null) {
                             mApertureLeftControls.attachToWindow(focused);
                         } else {
-                            if (!Float.isNaN(x)) p.translationX = x;
-                            if (!Float.isNaN(y)) p.translationY = y;
-                            if (!Float.isNaN(z)) p.translationZ = z;
+                            if (!Float.isNaN(x)) p.translationX = WidgetPlacement.unitFromMeters(x);
+                            if (!Float.isNaN(y)) p.translationY = WidgetPlacement.unitFromMeters(y);
+                            if (!Float.isNaN(z)) p.translationZ = WidgetPlacement.unitFromMeters(z);
                             if (!Float.isNaN(rot)) p.rotation = (float) Math.toRadians(rot);
                             if (!Float.isNaN(scale)) p.worldWidth *= scale;
                         }
