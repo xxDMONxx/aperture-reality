@@ -15,6 +15,10 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.graphics.Canvas;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PorterDuff;
@@ -266,6 +270,93 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
     private String mImmersiveTargetElementXPath;
     private OptionalInt mMaxCompositionLayers = OptionalInt.empty();
     private LinkedList<CheckCompositionLayersCallback> mCompositionLayersPendingCallbacks;
+
+    private final BroadcastReceiver mDebugUiReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            if (intent == null || intent.getAction() == null) return;
+            if (!"com.igalia.wolvic.DEBUG_UI".equals(intent.getAction())) return;
+
+            String target = intent.getStringExtra("target");
+            if (target == null) target = "all";
+
+            float x = intent.getFloatExtra("x", Float.NaN);
+            float y = intent.getFloatExtra("y", Float.NaN);
+            float z = intent.getFloatExtra("z", Float.NaN);
+            float rot = intent.getFloatExtra("rot", Float.NaN);
+            float scale = intent.getFloatExtra("scale", Float.NaN);
+            float dist = intent.getFloatExtra("dist", Float.NaN);
+            float ipd = intent.getFloatExtra("ipd", Float.NaN);
+            boolean reset = intent.getBooleanExtra("reset", false);
+
+            Log.i("WolvicDebugUI", "Received DEBUG_UI target=" + target + " x=" + x + " y=" + y + " z=" + z + " rot=" + rot + " scale=" + scale + " dist=" + dist + " ipd=" + ipd);
+
+            if (!Float.isNaN(dist)) {
+                float clampedDist = Math.max(0.0f, Math.min(1.0f, dist));
+                mSettings.setWindowDistance(clampedDist);
+            }
+
+            if (!Float.isNaN(ipd)) {
+                float ipdMeters = (ipd > 1.0f) ? (ipd / 1000.0f) : ipd;
+                if (VRBrowserActivity.this instanceof PlatformActivity) {
+                    ((PlatformActivity) VRBrowserActivity.this).applyIPD(ipdMeters);
+                }
+            }
+
+            WindowWidget focused = mWindows != null ? mWindows.getFocusedWindow() : null;
+
+            if ("tray".equalsIgnoreCase(target) || "all".equalsIgnoreCase(target)) {
+                if (mTray != null) {
+                    WidgetPlacement p = mTray.getPlacement();
+                    if (reset && focused != null) {
+                        mTray.attachToWindow(focused);
+                    } else {
+                        if (!Float.isNaN(x)) p.translationX = x;
+                        if (!Float.isNaN(y)) p.translationY = y;
+                        if (!Float.isNaN(z)) p.translationZ = z;
+                        if (!Float.isNaN(rot)) p.rotation = (float) Math.toRadians(rot);
+                        if (!Float.isNaN(scale) && focused != null && focused.getPlacement() != null) {
+                            float defaultWorldWidth = WidgetPlacement.floatDimension(VRBrowserActivity.this, R.dimen.tray_world_width);
+                            p.worldWidth = Math.max(defaultWorldWidth, focused.getPlacement().worldWidth * 0.70f) * scale;
+                        }
+                    }
+                    updateWidget(mTray);
+                }
+            }
+
+            if ("right".equalsIgnoreCase(target) || "all".equalsIgnoreCase(target)) {
+                if (mApertureSideControls != null) {
+                    WidgetPlacement p = mApertureSideControls.getPlacement();
+                    if (reset && focused != null) {
+                        mApertureSideControls.attachToWindow(focused);
+                    } else {
+                        if (!Float.isNaN(x)) p.translationX = x;
+                        if (!Float.isNaN(y)) p.translationY = y;
+                        if (!Float.isNaN(z)) p.translationZ = z;
+                        if (!Float.isNaN(rot)) p.rotation = (float) Math.toRadians(rot);
+                        if (!Float.isNaN(scale)) p.worldWidth *= scale;
+                    }
+                    updateWidget(mApertureSideControls);
+                }
+            }
+
+            if ("left".equalsIgnoreCase(target) || "all".equalsIgnoreCase(target)) {
+                if (mApertureLeftControls != null) {
+                    WidgetPlacement p = mApertureLeftControls.getPlacement();
+                    if (reset && focused != null) {
+                        mApertureLeftControls.attachToWindow(focused);
+                    } else {
+                        if (!Float.isNaN(x)) p.translationX = x;
+                        if (!Float.isNaN(y)) p.translationY = y;
+                        if (!Float.isNaN(z)) p.translationZ = z;
+                        if (!Float.isNaN(rot)) p.rotation = (float) Math.toRadians(rot);
+                        if (!Float.isNaN(scale)) p.worldWidth *= scale;
+                    }
+                    updateWidget(mApertureLeftControls);
+                }
+            }
+        }
+    };
 
     private ViewTreeObserver.OnGlobalFocusChangeListener globalFocusListener = new ViewTreeObserver.OnGlobalFocusChangeListener() {
         @Override
@@ -542,6 +633,13 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
             mPlatformPlugin.registerListener(this);
 
         mWindows.restoreSessions();
+
+        IntentFilter debugFilter = new IntentFilter("com.igalia.wolvic.DEBUG_UI");
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(mDebugUiReceiver, debugFilter, Context.RECEIVER_EXPORTED);
+        } else {
+            registerReceiver(mDebugUiReceiver, debugFilter);
+        }
     }
 
     private void onPresentingImmersiveChange(boolean presenting) {
@@ -776,6 +874,10 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
         if (mPermissionDelegate != null) {
             mPermissionDelegate.release();
         }
+
+        try {
+            unregisterReceiver(mDebugUiReceiver);
+        } catch (Exception ignored) {}
 
         mTray.removeListeners(mWindows);
 
