@@ -7,14 +7,15 @@ package com.igalia.wolvic.ui.widgets;
 import android.content.Context;
 import android.util.AttributeSet;
 import android.view.LayoutInflater;
+import android.view.View;
 import android.widget.TextView;
 
 import com.igalia.wolvic.R;
 import com.igalia.wolvic.browser.SettingsStore;
 
 public class ApertureLeftControlsWidget extends UIWidget {
-    private TextView mBtnCloser;
-    private TextView mBtnFurther;
+    private View mBtnCloser;
+    private View mBtnFurther;
     private WindowWidget mAttachedWindow;
 
     public ApertureLeftControlsWidget(Context aContext) {

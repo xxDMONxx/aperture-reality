@@ -22,7 +22,6 @@ public class ApertureSideControlsWidget extends UIWidget {
     private TextView mTxtIpdValue;
     private TextView mBtnIpdMinus;
     private TextView mBtnIpdPlus;
-    private TextView mBtnQrCardboard;
     private SeekBar mSeekBarIpd;
 
     private float mCurrentIpdMM = 60.7f; // Default 60.7mm = 0.0607m
@@ -65,7 +64,6 @@ public class ApertureSideControlsWidget extends UIWidget {
         mBtnIpdMinus = findViewById(R.id.btn_ipd_minus);
         mBtnIpdPlus = findViewById(R.id.btn_ipd_plus);
         mSeekBarIpd = findViewById(R.id.seekbar_ipd);
-        mBtnQrCardboard = findViewById(R.id.btn_qr_cardboard);
 
         if (mBtnTogglePanel != null) {
             mBtnTogglePanel.setOnClickListener(v -> {
@@ -110,17 +108,6 @@ public class ApertureSideControlsWidget extends UIWidget {
             mBtnIpdPlus.setOnClickListener(v -> {
                 mCurrentIpdMM = Math.min(74.0f, mCurrentIpdMM + 0.5f);
                 applyIpd();
-            });
-        }
-
-        if (mBtnQrCardboard != null) {
-            mBtnQrCardboard.setOnClickListener(v -> {
-                if (getContext() instanceof PlatformActivity) {
-                    ((PlatformActivity) getContext()).promptCardboardQrScanner(newIpdMM -> {
-                        mCurrentIpdMM = newIpdMM;
-                        applyIpd();
-                    });
-                }
             });
         }
 

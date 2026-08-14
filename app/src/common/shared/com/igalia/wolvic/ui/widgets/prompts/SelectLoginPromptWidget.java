@@ -103,8 +103,7 @@ public class SelectLoginPromptWidget extends UIDialog implements LoginsAdapter.D
 
     @Override
     public void updatePlacementTranslationZ() {
-        getPlacement().translationZ = WidgetPlacement.unitFromMeters(getContext(), R.dimen.tray_world_z) -
-                WidgetPlacement.getWindowWorldZMeters(getContext());
+        getPlacement().translationZ = WidgetPlacement.unitFromMeters(0.08f);
     }
 
     @Override

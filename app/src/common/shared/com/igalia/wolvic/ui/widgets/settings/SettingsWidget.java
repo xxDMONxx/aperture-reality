@@ -309,8 +309,7 @@ public class SettingsWidget extends UIDialog implements SettingsView.Delegate {
 
     @Override
     public void updatePlacementTranslationZ() {
-        getPlacement().translationZ = WidgetPlacement.unitFromMeters(getContext(), R.dimen.settings_world_z) -
-                                      WidgetPlacement.getWindowWorldZMeters(getContext());
+        getPlacement().translationZ = WidgetPlacement.unitFromMeters(0.08f);
     }
 
     @Override
