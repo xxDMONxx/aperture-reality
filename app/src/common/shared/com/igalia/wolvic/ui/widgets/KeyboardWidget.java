@@ -403,12 +403,13 @@ public class KeyboardWidget extends UIWidget implements CustomKeyboardView.OnKey
         aPlacement.width = getKeyboardWidth(WidgetPlacement.dpDimension(context, R.dimen.keyboard_alphabetic_width));
         aPlacement.height = getKeyboardHeight(WidgetPlacement.dpDimension(context, R.dimen.keyboard_height));
         aPlacement.anchorX = 0.5f;
-        aPlacement.anchorY = 0.0f;
+        aPlacement.anchorY = 1.0f;
+        aPlacement.parentAnchorX = 0.5f;
         aPlacement.parentAnchorY = 0.0f;
-        aPlacement.translationX = WidgetPlacement.unitFromMeters(context, R.dimen.keyboard_x);
-        aPlacement.translationY = WidgetPlacement.unitFromMeters(context, R.dimen.keyboard_y) - WidgetPlacement.unitFromMeters(context, R.dimen.window_world_y);
+        aPlacement.translationX = 0.0f;
+        aPlacement.translationY = WidgetPlacement.unitFromMeters(-0.12f);
         aPlacement.rotationAxisX = 1.0f;
-        aPlacement.rotation = (float)Math.toRadians(WidgetPlacement.floatDimension(context, R.dimen.keyboard_world_rotation));
+        aPlacement.rotation = (float)Math.toRadians(-30.0f);
         aPlacement.worldWidth = WidgetPlacement.floatDimension(context, R.dimen.keyboard_world_width);
         aPlacement.visible = false;
         // FIXME: keyboard is misplaced when rendered in a cylinder layer.
@@ -419,7 +420,7 @@ public class KeyboardWidget extends UIWidget implements CustomKeyboardView.OnKey
 
     @Override
     public void updatePlacementTranslationZ() {
-        getPlacement().translationZ = WidgetPlacement.unitFromMeters(getContext(), R.dimen.keyboard_z) - WidgetPlacement.getWindowWorldZMeters(getContext());
+        getPlacement().translationZ = WidgetPlacement.unitFromMeters(0.15f);
     }
 
     @Override
@@ -937,8 +938,7 @@ public class KeyboardWidget extends UIWidget implements CustomKeyboardView.OnKey
         if (width != mWidgetPlacement.width || height != mWidgetPlacement.height) {
             mWidgetPlacement.width = width;
             mWidgetPlacement.height = getKeyboardHeight(mCurrentKeyboard.getAlphabeticKeyboardHeight());
-            mWidgetPlacement.translationY = mCurrentKeyboard.getKeyboardTranslateYInWorld() -
-                    WidgetPlacement.unitFromMeters(getContext(), R.dimen.window_world_y);
+            mWidgetPlacement.translationY = WidgetPlacement.unitFromMeters(-0.12f);
             float defaultWorldWidth = mCurrentKeyboard.getKeyboardWorldWidth();
             int defaultKeyboardWidth = getKeyboardWidth(mKeyboards.get(0).getAlphabeticKeyboardWidth());
             mWidgetPlacement.worldWidth = defaultWorldWidth * ((float) width / (float) defaultKeyboardWidth);
