@@ -40,8 +40,8 @@ struct WidgetMover::State {
       // For a cylinder project the point to the virtual quad.
       vrb::Vector min, max;
       aWidget->GetWidgetMinAndMax(min, max);
-      vrb::Vector point =  aWidget->GetCylinder()->ProjectPointToQuad(aWorldPoint, 0.5f, aWidget->GetCylinderDensity(), min, max);
-      return aWidget->GetTransformNode()->GetWorldTransform().MultiplyPosition(point);
+      vrb::Vector point = aWidget->GetCylinder()->ProjectPointToQuad(aWorldPoint, 0.5f, aWidget->GetCylinderDensity(), min, max);
+      return initialTransform.MultiplyPosition(point);
     } else {
       return aWorldPoint;
     }

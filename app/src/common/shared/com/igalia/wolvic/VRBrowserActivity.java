@@ -560,18 +560,14 @@ public class VRBrowserActivity extends PlatformActivity implements WidgetManager
             @Override
             public void onWindowsMoved() {
                 mNavigationBar.hideAllNotifications();
-                updateWidget(mTray);
-                if (mWindows != null) {
-                    WindowWidget rightmost = mWindows.getRightmostWindow();
-                    if (mApertureSideControls != null && rightmost != null) {
-                        mApertureSideControls.attachToWindow(rightmost);
-                        updateWidget(mApertureSideControls);
-                    }
-                    WindowWidget leftmost = mWindows.getLeftmostWindow();
-                    if (mApertureLeftControls != null && leftmost != null) {
-                        mApertureLeftControls.attachToWindow(leftmost);
-                        updateWidget(mApertureLeftControls);
-                    }
+                if (mTray != null) {
+                    updateWidget(mTray);
+                }
+                if (mApertureSideControls != null) {
+                    updateWidget(mApertureSideControls);
+                }
+                if (mApertureLeftControls != null) {
+                    updateWidget(mApertureLeftControls);
                 }
             }
 

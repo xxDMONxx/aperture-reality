@@ -222,6 +222,7 @@ struct BrowserWorld::State {
   float selectThreshold;
   std::optional<vrb::Quaternion> windowInitialOrientation;
   std::optional<vrb::Quaternion> previousWindowRelativeRotation;
+  std::optional<vrb::Matrix> windowInitialReorientTransform;
   std::chrono::steady_clock::time_point lastTimeWindowDistanceComputation;
 
   State() : paused(true), glInitialized(false), modelsLoaded(false), env(nullptr), cylinderDensity(0.0f), nearClip(0.1f),
@@ -537,7 +538,8 @@ BrowserWorld::State::UpdateControllers(bool& aRelayoutWidgets) {
 
       if (controller.hasAim) {
         if (hitWidget) {
-          vrb::Matrix translation = vrb::Matrix::Translation(hitPoint);
+          vrb::Vector offsetHitPoint = hitPoint + hitNormal * 0.004f;
+          vrb::Matrix translation = vrb::Matrix::Translation(offsetHitPoint);
           vrb::Matrix localRotation = vrb::Matrix::Rotation(hitNormal);
           vrb::Matrix reorient = rootTransparent->GetTransform();
           controller.pointer->SetTransform(reorient.AfineInverse().PostMultiply(translation).PostMultiply(localRotation));
@@ -1275,23 +1277,26 @@ BrowserWorld::StartFrame() {
       OnReorient();
       auto reorientTransform = m.lockMode == LockMode::HEAD ? m.device->GetHeadTransform() : GetActiveControllerOrientation();
       if (m.lockMode == LockMode::CONTROLLER) {
-        if (!m.windowInitialOrientation)
+        if (!m.windowInitialOrientation) {
           m.windowInitialOrientation = vrb::Quaternion(reorientTransform);
+          m.windowInitialReorientTransform = m.device->GetReorientTransform();
+        }
         Quaternion reorientQuaternion(reorientTransform);
         Quaternion relativeRotation = reorientQuaternion.Inverse() * *m.windowInitialOrientation;
         // Use SLERP to interpolate the current relative rotation with the previous one to smooth out sudden jumps
         if (m.previousWindowRelativeRotation)
-          relativeRotation = vrb::Quaternion::Slerp(*m.previousWindowRelativeRotation,relativeRotation, 0.25f);
+          relativeRotation = vrb::Quaternion::Slerp(*m.previousWindowRelativeRotation, relativeRotation, 0.25f);
 
-        reorientTransform = vrb::Matrix::Rotation(relativeRotation);
-        m.previousWindowRelativeRotation = std::move(relativeRotation);
+        vrb::Matrix deltaMatrix = vrb::Matrix::Rotation(relativeRotation);
+        m.previousWindowRelativeRotation = relativeRotation;
+        reorientTransform = m.windowInitialReorientTransform ? deltaMatrix.PostMultiply(*m.windowInitialReorientTransform) : deltaMatrix;
         m.reorientRequested = true;
-
-        ThrottledWindowDistanceComputation(reorientTransform);
       }
       m.device->Reorient(reorientTransform, m.lockMode == LockMode::HEAD ? DeviceDelegate::ReorientMode::SIX_DOF : DeviceDelegate::ReorientMode::NO_ROLL);
     } else {
         m.previousWindowRelativeRotation.reset();
+        m.windowInitialOrientation.reset();
+        m.windowInitialReorientTransform.reset();
     }
     if (m.reorientRequested)
       relayoutWidgets = std::exchange(m.reorientRequested, false);
@@ -1933,15 +1938,19 @@ BrowserWorld::DrawWorld(device::Eye aEye) {
   if (m.trackedKeyboardRenderer != nullptr)
       m.trackedKeyboardRenderer->Draw(*camera);
 
-  // Draw controllers
-  m.drawList->Reset();
-  m.rootController->Cull(*m.cullVisitor, *m.drawList);
-  m.drawList->Draw(*camera);
+  // Draw transparent widgets and dialogs
   VRB_GL_CHECK(glDepthMask(GL_FALSE));
   m.drawList->Reset();
   m.rootTransparent->Cull(*m.cullVisitor, *m.drawList);
   m.drawList->Draw(*camera);
   VRB_GL_CHECK(glDepthMask(GL_TRUE));
+
+  // Draw controllers and pointer reticule on top without depth clipping
+  VRB_GL_CHECK(glDisable(GL_DEPTH_TEST));
+  m.drawList->Reset();
+  m.rootController->Cull(*m.cullVisitor, *m.drawList);
+  m.drawList->Draw(*camera);
+  VRB_GL_CHECK(glEnable(GL_DEPTH_TEST));
 }
 
 void
