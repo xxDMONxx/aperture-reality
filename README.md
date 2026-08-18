@@ -1,174 +1,78 @@
-# 🥽 Aperture Reality — Next-Gen 3DOF VR Browser for Mobile Headsets
+# 🥽 Aperture Reality — Next-Gen 3DoF VR & Passthrough AR Spatial Browser for Android
 
-[![Android 3DOF](https://img.shields.io/badge/Platform-Android%203DOF-success.svg?style=for-the-badge&logo=android)](https://developer.android.com/)
-[![OpenGL ES 3.0](https://img.shields.io/badge/Graphics-OpenGL%20ES%203.0-orange.svg?style=for-the-badge&logo=opengl)](https://www.khronos.org/opengles/)
-[![Gecko Engine](https://img.shields.io/badge/Engine-GeckoView-blue.svg?style=for-the-badge&logo=firefox)](https://mozilla.org)
-[![Build Status](https://img.shields.io/badge/Build-Gradle%20%7C%20Java%2017-brightgreen.svg?style=for-the-badge)](https://gradle.org)
-
-🌐 **Language / Idioma**: [English](#-english) | [Español](#-español)
-
----
-
-<a name="-english"></a>
-## 🇬🇧 English
-
-**Aperture Reality** is a high-performance 3DOF WebXR/VR browser optimized for mobile headsets (Google Cardboard and variants). Built upon the **Wolvic** native engine, it reconstructs the optical stereo vision pipeline, adds dynamically anchored 3D ergonomic controls, and provides real-time ADB UI tuning.
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Android%203DOF%20%26%20AR-success.svg?style=for-the-badge&logo=android" alt="Platform Android" />
+  <img src="https://img.shields.io/badge/Graphics-OpenGL%20ES%203.0-orange.svg?style=for-the-badge&logo=opengl" alt="OpenGL ES 3.0" />
+  <img src="https://img.shields.io/badge/Engine-GeckoView%20%7C%20Wolvic-blue.svg?style=for-the-badge&logo=firefox" alt="GeckoView" />
+  <img src="https://img.shields.io/badge/Version-v0.2.0--beta-purple.svg?style=for-the-badge" alt="Version Beta" />
+</p>
 
 ---
 
-### 🌟 Key Features
+## 👨‍💻 Created & Developed by **Gerónimo ([@xxDMONxx](https://github.com/xxDMONxx))**
 
-#### 🎯 1. High-Precision Cardboard Optical Pipeline
-- **Stereo Lens Correction**: Native C++ FBO rendering (`DeviceDelegate3DOF.cpp`) supporting $k_1$ and $k_2$ radial distortion coefficients.
-- **FOV & Pupil Mapping**: Strict field-of-view and optical center alignment following official Google Cardboard specifications.
-- **IPD Calibration**: Real-time interpupillary distance adjustment with default **60.7 mm**.
+**Aperture Reality** transforms any standard Android smartphone into a high-performance **Spatial 3DoF VR & Passthrough AR Computing Environment** inside Google Cardboard, VRBox, or universal mobile VR headsets.
 
-#### 🎮 2. Ergonomic Controls & Anchored 3D Panels
+Built with a custom native C++/Java engine upon the open-source **Wolvic** foundation, Aperture Reality introduces live optical calibration, zero-copy passthrough augmented reality, smooth 360° rotational tracking, and ergonomic floating 3D spatial widgets.
+
+---
+
+## 📥 Official Download & Releases
+
+Get the official compiled APK ready to install directly on your phone:
+
+* 🚀 **[Download Latest Official APK (v0.2.0-beta)](https://github.com/xxDMONxx/aperture-reality/releases/tag/v0.2.0-beta)**
+* 📦 **[All Release Builds](https://github.com/xxDMONxx/aperture-reality/releases)**
+
+---
+
+## 🌟 Key Innovations & Features
+
+### 📷 1. Passthrough Augmented Reality (AR Mode)
+- **Live Widescreen Camera Feed**: Seamlessly toggles the phone's rear camera to display your physical room in real-time behind the browser.
+- **Hardware Zero-Copy Rendering**: Native `GL_TEXTURE_EXTERNAL_OES` pipeline operating at 60 FPS with zero CPU overhead.
+- **Spatial 3D Windows in the Real World**: Web browsing windows, video players, and floating tools hover directly over your real desk or room with stereoscopic depth.
+
+### 🧭 2. High-Frequency Gyroscope Tracking (No Magnetic Jitter)
+- **Pure Gyro + Accelerometer Engine**: Leverages `TYPE_GAME_ROTATION_VECTOR` at highest hardware sampling rates, eliminating magnetic compass snapping, twitches, and indoor electromagnetic interference.
+- **Continuous 360° Rotation**: Mathematical 4D quaternion antipodal alignment ensuring seamless 360-degree continuous head rotation without boundary clamping.
+- **Instant 1:1 Response**: Low-pass and derivative filters calibrated for instant, natural gaze aiming at tabs, buttons, and links.
+
+### ⚙️ 3. Anchored 3D Spatial Controls (Aperture Panels)
 - **Right 3D / IPD Panel** (`ApertureSideControlsWidget`):
-  - Collapsible `⚙️ 3D / IPD` toggle button to minimize visual clutter.
-  - Integrated IPD controls, 3D view recentering, and Cardboard QR code scanner.
-  - Single-instance widget auto-anchored to the rightmost active tab.
-- **Left Distance / Zoom Control** (`ApertureLeftControlsWidget`):
-  - Ergonomic ⬆️ (**Zoom In**) and ⬇️ (**Zoom Out**) buttons.
-  - Allows bringing the giant virtual screen as close as **2.5 meters** in 3D space.
-  - Auto-anchored to the leftmost active tab.
-- **1:1 Synchronized Bottom Tray** (`TrayWidget`):
-  - The window management and private browsing tray stays 100% rigidly anchored to the main screen during distance changes.
+  - Collapsible `⚙️ 3D / IPD` badge anchored to active browser windows.
+  - Real-time **IPD (Interpupillary Distance)** slider (54 mm to 74 mm) to eliminate eye strain.
+  - Instant **"🎯 Recentrar Vista"** yaw realign button.
+  - **"📷 Passthrough (Cámara AR)"** one-tap toggle button.
+- **Left Distance / Zoom Widget** (`ApertureLeftControlsWidget`):
+  - Smooth spatial distance adjustment bringing screens from $-1.5\text{ m}$ up to $-6.0\text{ m}$.
+  - Custom vector icons for sleek zoom controls.
 
-#### ⚡ 3. Live ADB Real-Time Debugging System
-- Modify position $X, Y, Z$, tilt (rotation), and scale of any floating widget live while wearing the headset, **without app reboots or reinstalls**.
-
----
-
-### 📐 Component Glossary
-For real code symbols and colloquial names, refer to [GLOSSARY.md](GLOSSARY.md).
+### ⌨️ 4. Ergonomic Virtual Floating Keyboard
+- **Tilted at $-30^\circ$**: Naturally oriented to match relaxed head gaze angles.
+- **Forward-Floating Clearance**: Positioned with $+15\text{ cm}$ forward depth and $-12\text{ cm}$ vertical clearance to prevent any UI overlaps with the address bar.
 
 ---
 
-### 🛠️ Build & Installation
+## ☕ Support Aperture Reality
 
-#### Prerequisites
-- **JDK 17** installed (`JAVA_HOME`).
-- **Android SDK** with `adb` and `platform-tools`.
-- Android phone connected via USB / ADB.
+If you enjoy Aperture Reality and want to support the ongoing development, new features, and optimization of mobile spatial computing:
 
-#### 1. Compile Debug APK
-```powershell
-$env:JAVA_HOME="C:\Users\PC\Downloads\jdk17\jdk-17.0.19+10"
-.\gradlew.bat assembleUniversal3dofArm64GeckoGenericDebug
-```
-
-#### 2. Install & Run on Mobile Phone
-```powershell
-& "C:\Users\PC\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s <DEVICE_ID> install -r "app\build\outputs\apk\universal3dofArm64GeckoGeneric\debug\Wolvic-universal3dof-arm64-gecko-generic-debug.apk"
-& "C:\Users\PC\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s <DEVICE_ID> shell "am force-stop com.igalia.wolvic.u3dof; am start -n com.igalia.wolvic.u3dof/com.igalia.wolvic.VRBrowserActivity"
-```
+* 💖 **Star the Project**: Give this repository a ⭐ on GitHub!
+* 💬 **Feedback & Testing**: Share your ideas, bug reports, and headset configs in [GitHub Issues](https://github.com/xxDMONxx/aperture-reality/issues).
+* ☕ **Donations & Sponsorship**: Voluntary contributions help fund test devices, optical hardware, and dedicated development time. (Contact via GitHub profile / Sponsor button).
 
 ---
 
-### 💻 Real-Time ADB Debug Cheatsheet
+## 📜 Distribution & License Notice
 
-| Action | ADB Command |
-| :--- | :--- |
-| **Move Bottom Tray** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --es target tray --ef x 0.0 --ef y -0.35 --ef z 0.05` |
-| **Tilt Bottom Tray** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --es target tray --ef rot -30` |
-| **Scale Bottom Tray** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --es target tray --ef scale 1.2` |
-| **Adjust IPD (mm)** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --ef ipd 60.7` |
-| **Adjust Window Z Distance** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --ef dist 0.3` |
-| **Reset Placements** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --ez reset true` |
+- **Aperture Reality** incorporates components from the open-source **Wolvic** project (developed by [Igalia](https://igalia.com) and the Mozilla Foundation), licensed under the **Mozilla Public License (MPL) 2.0**.
+- The `v0.1.0-beta` baseline release remains available under its respective open-source terms.
+- **Proprietary Enhancements & Custom Development**: All original features, optical shaders, passthrough pipelines, spatial widgets, and UI adaptations developed specifically for Aperture Reality by **Gerónimo** are distributed via official binary releases. Unauthorized redistribution, removal of developer attribution, or rebranding without explicit permission is strictly prohibited.
+- For integration inquiries, collaborations, or custom headset profile partnerships, please reach out via the official repository.
 
 ---
 
-<hr style="height:2px;border-width:0;color:gray;background-color:gray">
-
-<a name="-español"></a>
-## 🇪🇸 Español
-
-**Aperture Reality** es un navegador WebXR/VR 3DOF de alto rendimiento optimizado para visores móviles (Google Cardboard y derivados). Diseñado sobre el motor nativo de **Wolvic**, reconstruye el pipeline de visión óptica estéreo, agrega controles ergonómicos 3D vinculados dinámicamente y permite depuración y sintonización de la interfaz en tiempo real por ADB.
-
----
-
-### 🌟 Características Destacadas
-
-#### 🎯 1. Pipeline Óptico Cardboard de Alta Precisión
-- **Corrección de Lentes Estéreo**: Renderizado FBO nativo en C++ (`DeviceDelegate3DOF.cpp`) con soporte para los coeficientes de distorsión radial $k_1$ y $k_2$.
-- **FOV y Mapeo Pupilar**: Ajuste estricto del campo de visión y centrado óptico según el perfil oficial de Google Cardboard.
-- **Calibración IPD**: Cambio de distancia interpupilar en tiempo real con valor por defecto de **60.7 mm**.
-
-#### 🎮 2. Controles Ergonómicos y Paneles 3D Anclados
-- **Panel 3D / IPD (Derecho)** (`ApertureSideControlsWidget`):
-  - Botón desplegable `⚙️ 3D / IPD` para minimizar la distracción visual.
-  - Controles integrados de IPD, recentrado de vista y lector de QR de Cardboard.
-  - Instancia única anclada automáticamente a la pestaña de más a la derecha.
-- **Control de Distancia / Zoom (Izquierdo)** (`ApertureLeftControlsWidget`):
-  - Botones ergonómicos ⬆️ (**Acercar**) y ⬇️ (**Alejar**).
-  - Permite aproximar la pantalla gigante a solo **2.5 metros** en el espacio 3D para una experiencia inmersiva profunda.
-  - Anclado automáticamente a la pestaña de más a la izquierda.
-- **Bandeja Inferior Sincronizada 1:1** (`TrayWidget`):
-  - La bandeja de gestión de ventanas y modo incógnito se mueve y escala de forma 100% rígida junto con la pantalla principal.
-
-#### ⚡ 3. Sistema de Depuración y Ajuste Visual en Vivo por ADB
-- Modifica la posición $X, Y, Z$, inclinación (rotación) y escala de cualquier widget flotante en vivo mientras usas las gafas, **sin necesidad de reiniciar o reinstalar la app**.
-
----
-
-### 📐 Glosario de Elementos
-
-Para conocer los nombres en código y coloquiales de todos los componentes, consulta nuestro [GLOSSARY.md](GLOSSARY.md).
-
----
-
-### 🛠️ Instalación y Compilación
-
-#### Requisitos Previos
-- **JDK 17** instalado (`JAVA_HOME`).
-- **Android SDK** con `adb` y `platform-tools`.
-- Teléfono móvil Android conectado vía USB / ADB.
-
-#### 1. Compilar el APK Debug
-```powershell
-$env:JAVA_HOME="C:\Users\PC\Downloads\jdk17\jdk-17.0.19+10"
-.\gradlew.bat assembleUniversal3dofArm64GeckoGenericDebug
-```
-
-#### 2. Instalar y Ejecutar en el Celular
-```powershell
-& "C:\Users\PC\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s <DEVICE_ID> install -r "app\build\outputs\apk\universal3dofArm64GeckoGeneric\debug\Wolvic-universal3dof-arm64-gecko-generic-debug.apk"
-& "C:\Users\PC\AppData\Local\Android\Sdk\platform-tools\adb.exe" -s <DEVICE_ID> shell "am force-stop com.igalia.wolvic.u3dof; am start -n com.igalia.wolvic.u3dof/com.igalia.wolvic.VRBrowserActivity"
-```
-
----
-
-### 💻 Cheatsheet de Depuración ADB en Tiempo Real
-
-| Acción | Comando ADB |
-| :--- | :--- |
-| **Mover Bandeja Inferior** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --es target tray --ef x 0.0 --ef y -0.35 --ef z 0.05` |
-| **Inclinar Bandeja** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --es target tray --ef rot -30` |
-| **Escalar Bandeja** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --es target tray --ef scale 1.2` |
-| **Ajustar IPD (mm)** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --ef ipd 60.7` |
-| **Ajustar Distancia Z** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --ef dist 0.3` |
-| **Restablecer Todo** | `adb shell am broadcast -a com.igalia.wolvic.DEBUG_UI --ez reset true` |
-
----
-
-## 📁 Estructura del Código / Code Structure
-
-```text
-app/src/
- ├── universal3dof/cpp/
- │    └── DeviceDelegate3DOF.cpp       # Native C++ 3DOF optical pipeline & sensors
- └── common/shared/com/igalia/wolvic/
-      ├── VRBrowserActivity.java        # Main activity, DEBUG_UI receiver & widget management
-      └── ui/widgets/
-           ├── ApertureSideControlsWidget.java  # Right 3D / IPD panel
-           ├── ApertureLeftControlsWidget.java  # Left distance/zoom control
-           ├── TrayWidget.java                  # 1:1 anchored bottom floating tray
-           └── Windows.java                     # 3D window manager
-```
-
----
-
-## 📜 Licencia / License
-
-Based on the open-source **Wolvic** engine by [Igalia](https://igalia.com) under MPL 2.0. Customizations & optical pipeline by **Aperture Reality**.
+<p align="center">
+  <b>Aperture Reality</b> — Spatial Computing for Everyone. Crafted with passion by <b>Gerónimo</b>.
+</p>
