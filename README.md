@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/Platform-Android%203DOF%20%26%20AR-success.svg?style=for-the-badge&logo=android" alt="Platform Android" />
   <img src="https://img.shields.io/badge/Graphics-OpenGL%20ES%203.0-orange.svg?style=for-the-badge&logo=opengl" alt="OpenGL ES 3.0" />
   <img src="https://img.shields.io/badge/Engine-GeckoView%20%7C%20Wolvic-blue.svg?style=for-the-badge&logo=firefox" alt="GeckoView" />
-  <img src="https://img.shields.io/badge/Version-v0.3.0--beta-purple.svg?style=for-the-badge" alt="Version Beta" />
+  <img src="https://img.shields.io/badge/Version-v0.3.1--beta-purple.svg?style=for-the-badge" alt="Version Beta" />
 </p>
 
 ---
@@ -21,7 +21,7 @@ Built with a custom native C++/Java engine upon the open-source **Wolvic** found
 
 Get the official compiled APK ready to install directly on your phone:
 
-* 🚀 **[Download Latest Official APK (v0.3.0-beta)](https://github.com/xxDMONxx/aperture-reality/releases/tag/v0.3.0-beta)**
+* 🚀 **[Download Latest Official APK (v0.3.1-beta)](https://github.com/xxDMONxx/aperture-reality/releases/tag/v0.3.1-beta)**
 * 📦 **[All Release Builds](https://github.com/xxDMONxx/aperture-reality/releases)**
 
 ---
